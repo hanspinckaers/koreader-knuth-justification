@@ -23,6 +23,7 @@
 #include "../include/lvdrawbuf.h"
 #include "../include/lvstyles.h"
 #include "../include/lvthread.h"
+#include "../include/knuthpagespacing.h"
 
 // Uncomment for debugging text measurement or drawing
 // #define DEBUG_MEASURE_TEXT
@@ -4419,9 +4420,19 @@ public:
             int tracking_points_done = tracking_start;
             int tracking_width_done = tracking_points > 0
                     ? tracking_width * tracking_start / tracking_points : 0;
+            int tracking_width_done_x64 = knuthDistributedTrackingX64(
+                    tracking_width, tracking_start, tracking_points);
             int fractional_positioning_granularity = getFractionalGlyphPositioningGranularity();
             bool use_fractional_positioning = fractional_positioning_granularity > 1;
             lInt32 x_64 = x * 64;
+            if ( use_fractional_positioning && tracking_points > 0 ) {
+                // word->x already contains the integer part assigned during
+                // layout. Restore the line accumulator's fractional part so
+                // kerning and tracking advance one continuous 26.6 pen even
+                // though words are drawn in separate calls.
+                x_64 += tracking_width_done_x64 - tracking_width_done * 64;
+                x = FONT_METRIC_TO_PX(x_64);
+            }
             while (hg < glyph_count) { // hg is the start of a new cluster at this point
                 bool draw_with_fallback = false;
                 int hcl = glyph_info[hg].cluster;
@@ -4712,12 +4723,18 @@ public:
                             tracking_points_done++;
                             int target_done = tracking_width *
                                     tracking_points_done / tracking_points;
-                            int tracking_delta = target_done - tracking_width_done;
                             if ( use_fractional_positioning ) {
-                                x_64 += tracking_delta * 64;
+                                int target_done_x64 = knuthDistributedTrackingX64(
+                                        tracking_width, tracking_points_done,
+                                        tracking_points);
+                                x_64 += target_done_x64 -
+                                        tracking_width_done_x64;
                                 x = FONT_METRIC_TO_PX(x_64);
+                                tracking_width_done_x64 = target_done_x64;
                             }
                             else {
+                                int tracking_delta = target_done -
+                                        tracking_width_done;
                                 x += tracking_delta;
                                 x_64 = x * 64;
                             }

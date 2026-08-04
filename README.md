@@ -88,6 +88,12 @@ packaged as a complete official Kindle installation rather than a small overlay:
 This integrated package is separate from the historical page-only plugin
 release. The page-only variant continues to preserve stock official kerning.
 
+The integrated renderer keeps HarfBuzz kerning and optional negative
+microtracking in one continuous 26.6 pen across the complete visual line.
+Microtracking is a penalized fallback used only after word spaces reach their
+contraction limit; ordinary integer word-space remainders stay at the right
+edge and do not alter glyph spacing.
+
 ## License
 
 GPL-3.0-or-later. The native files are derived from KOReader's CREngine and

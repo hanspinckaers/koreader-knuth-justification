@@ -10,3 +10,9 @@ ${CXX:-c++} -std=c++11 -Wall -Wextra -Werror \
     "$repo_dir/tests/page_word_spacing_test.cpp" \
     -o "$build_dir/page_word_spacing_test"
 "$build_dir/page_word_spacing_test"
+
+${CXX:-c++} -std=c++11 -Wall -Wextra -Werror \
+    -I"$repo_dir/combined/native/overlay/crengine/include" \
+    "$repo_dir/tests/fractional_tracking_test.cpp" \
+    -o "$build_dir/fractional_tracking_test"
+"$build_dir/fractional_tracking_test"

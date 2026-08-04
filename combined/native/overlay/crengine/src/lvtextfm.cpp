@@ -2896,54 +2896,19 @@ public:
             return applyDistributedTracking(frmline, extra_width);
         }
 
-        // Pick one absolute space width. With glyph spacing preserved, round
-        // downward and leave the indivisible remainder at the line edge.
-        // Configured word-space bounds are respected whenever all spaces have
-        // a common feasible interval.
+        // Pick one absolute space width by rounding downward. A harmless
+        // positive raster remainder stays at the line edge; microtracking is
+        // reserved for genuine overfull lines after word spaces have reached
+        // their configured contraction limit.
         int desired_space_total = natural_space_total + extra_width;
-        bool preserve_glyph_spacing =
-                m_pbuffer->justify_tracking_shrink_percent == 0 &&
-                m_pbuffer->justify_tracking_stretch_percent == 0;
-        // When glyph spacing is locked, round down. The line may end a few
-        // pixels short, but it never alters HarfBuzz kerning or crosses the
-        // right margin merely to absorb an indivisible space remainder.
-        int target_space = preserve_glyph_spacing
-                ? desired_space_total / spaces
-                : (desired_space_total + spaces / 2) / spaces;
+        int target_space = desired_space_total / spaces;
         target_space = std::max(1, target_space);
         if ( min_common_space <= max_common_space )
             target_space = std::max(min_common_space,
                     std::min(max_common_space, target_space));
 
-        if ( preserve_glyph_spacing ) {
-            return applyFixedWordSpacing(frmline, target_space);
-        }
-
         int tracking_points = countDistributedTrackingPoints(frmline);
         int predicted_applied = target_space * spaces - natural_space_total;
-        if ( m_pbuffer->justify_tracking_stretch_percent == 0 &&
-                predicted_applied < extra_width ) {
-            // Never Expand mode: put a positive raster remainder into the
-            // equal word gaps. Rounding upward can leave only a small
-            // negative remainder, which bounded contraction can absorb.
-            int raise_by = (extra_width - predicted_applied + spaces - 1) /
-                    spaces;
-            target_space += raise_by;
-            predicted_applied =
-                    target_space * spaces - natural_space_total;
-
-            int tracking_shrink_capacity = frmline->width *
-                    m_pbuffer->justify_tracking_shrink_percent / 100;
-            if ( predicted_applied - extra_width >
-                    tracking_shrink_capacity ) {
-                // Exact width would need too much contraction. Use the next
-                // lower equal word-space width and accept a subpixel-short
-                // line; never replace it with positive letter spacing.
-                target_space = std::max(1, target_space - 1);
-                predicted_applied =
-                        target_space * spaces - natural_space_total;
-            }
-        }
         if ( tracking_points == 0 && predicted_applied > extra_width ) {
             // There is no subpixel sink for an indivisible negative
             // remainder. Bias the common word space downward: a slightly
@@ -5607,9 +5572,10 @@ public:
                 if ( !ragged_final && badness > tolerance )
                     continue;
                 // Model the renderer's exact ordering: first choose one
-                // absolute word-space width. When tracking is disabled, keep
-                // any indivisible integer remainder as optical edge slack;
-                // otherwise model the configured line-wide microtracking.
+                // absolute word-space width by rounding down. Positive raster
+                // remainder stays as optical edge slack. Only a negative
+                // remainder caused by the minimum word-space bound may use
+                // bounded line-wide microtracking.
                 int tracking_basis_points = 0;
                 int visible_space_target_x64 = -1;
                 int optical_slack = 0;
@@ -5617,13 +5583,7 @@ public:
                     int space_adjustment = 0;
                     if ( space_count > 0 ) {
                         int desired_space_total = natural_space_total + diff;
-                        bool preserve_glyph_spacing =
-                                m_pbuffer->justify_tracking_shrink_percent == 0 &&
-                                m_pbuffer->justify_tracking_stretch_percent == 0;
-                        int target_space = preserve_glyph_spacing
-                                ? desired_space_total / space_count
-                                : (desired_space_total + space_count / 2) /
-                                  space_count;
+                        int target_space = desired_space_total / space_count;
                         target_space = std::max(1, target_space);
                         int minimum_common_space =
                                 (natural_space_total +
@@ -5638,29 +5598,11 @@ public:
                                 natural_space_total;
                     }
                     int tracking_adjustment = diff - space_adjustment;
-                    bool preserve_glyph_spacing =
-                            m_pbuffer->justify_tracking_shrink_percent == 0 &&
-                            m_pbuffer->justify_tracking_stretch_percent == 0;
-                    if ( preserve_glyph_spacing ) {
-                        // Do not turn a word-space rounding remainder into
-                        // microtracking. Keep it as bounded optical slack at
-                        // the right edge, preserving the shaped word exactly.
-                        if ( tracking_adjustment < 0 )
-                            continue;
+                    if ( tracking_adjustment >= 0 ) {
+                        // Never turn word-space integer rounding or the page
+                        // baseline objective into letter spacing.
                         optical_slack = tracking_adjustment;
                         tracking_adjustment = 0;
-                    }
-                    if ( tracking_adjustment > 0 &&
-                            m_pbuffer->justify_tracking_stretch_percent == 0 ) {
-                        if ( space_count == 0 )
-                            continue;
-                        // Mirror applyOptimizedJustification(): ceil the
-                        // common word-space target so residual tracking is
-                        // zero or negative, including on the emergency pass.
-                        int raise_by = (tracking_adjustment +
-                                space_count - 1) / space_count;
-                        space_adjustment += raise_by * space_count;
-                        tracking_adjustment = diff - space_adjustment;
                     }
                     if ( space_count > 0 )
                         visible_space_target_x64 =
@@ -5682,6 +5624,8 @@ public:
                 long long line_cost = (long long)(m_pbuffer->justify_line_penalty +
                         badness) * (m_pbuffer->justify_line_penalty + badness);
                 line_cost += (long long)optical_slack * optical_slack;
+                line_cost += knuthTrackingMagnitudeCost(
+                        tracking_basis_points);
                 // Hyphenation is a neutral break opportunity in page mode.
                 // It is neither delayed to a later pass nor assigned explicit,
                 // consecutive, or final-line demerits.

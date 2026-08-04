@@ -590,7 +590,7 @@ Page-level mode performs an initial pagination followed by up to two bounded ref
                     name_text = _("Page-level word-space limits"),
                     info_text = _([[Set the maximum contraction and expansion of every adjustable word space, as percentages of its natural width.
 
-All spaces on one line receive the same adjustment. A remaining pixel fraction is handled with bounded letter spacing instead of making the first spaces wider.]]),
+All spaces on one line receive the same adjustment. A routine integer-pixel remainder stays at the right edge instead of changing individual gaps or letter spacing.]]),
                     left_text = _("Max −"),
                     left_min = 0,
                     left_max = 100,
@@ -622,10 +622,12 @@ All spaces on one line receive the same adjustment. A remaining pixel fraction i
                 more_options_param = {
                     name = "justification_letter_spacing",
                     name_text = _("Maximum letter-spacing adjustment"),
-                    info_text = _([[Inter-letter adjustment is disabled. Page-level justification preserves each word's HarfBuzz shaping and changes only word spaces.]]),
+                    info_text = _([[Set the maximum negative microtracking available after word spaces have reached their contraction limit.
+
+Microtracking is never used for ordinary pixel rounding or page-baseline matching. With fractional positioning enabled, kerning and tracking share one continuous 1/64-pixel pen across the complete line.]]),
                     left_text = _("Max −"),
                     left_min = 0,
-                    left_max = 0,
+                    left_max = 20,
                     left_step = 1,
                     left_hold_step = 2,
                     right_text = _("Max +"),
@@ -636,25 +638,30 @@ All spaces on one line receive the same adjustment. A remaining pixel fraction i
                     unit = "%",
                     event = "SetJustificationLetterSpacing",
                 },
-                toggle = {C_("Letter spacing", "off — preserve kerning")},
-                values = {{0, 0}},
-                default_value = {0, 0},
-                args = {{0, 0}},
+                toggle = {C_("Letter spacing", "off"), C_("Letter spacing", "−1% fallback")},
+                values = {{0, 0}, {1, 0}},
+                default_value = {1, 0},
+                args = {{0, 0}, {1, 0}},
                 event = "SetJustificationLetterSpacing",
                 enabled_func = optimizedJustificationEnabled,
                 name_text_hold_callback = optionsutil.showValues,
                 name_text_true_values = true,
                 show_true_value_func = percentPair,
-                help_text = _([[Page-level justification preserves HarfBuzz glyph spacing exactly. It changes only word spaces; a tiny indivisible pixel remainder may remain at the right edge instead of altering kerning.]]),
+                help_text = _([[Allows up to 1% contraction only when a line cannot fit after word spaces reach their minimum. It never expands letters and never absorbs routine rounding remainders. Fractional kerning and tracking use the same continuous pen.]]),
             },
             {   -- ReaderFont
                 name = "justification_tracking_smoothness",
                 name_text = _("Letter-space Smoothness"),
-                toggle = {C_("Adjacent-line letter spacing", "off")},
+                toggle = {
+                    C_("Adjacent-line letter spacing", "off"),
+                    C_("Adjacent-line letter spacing", "strict"),
+                    C_("Adjacent-line letter spacing", "smooth"),
+                    C_("Adjacent-line letter spacing", "relaxed"),
+                },
                 -- Stored as basis points: 50 means 0.50 percentage points.
-                values = {0},
-                default_value = 0,
-                args = {0},
+                values = {0, 25, 50, 100},
+                default_value = 50,
+                args = {0, 25, 50, 100},
                 event = "SetJustificationTrackingSmoothness",
                 enabled_func = optimizedJustificationEnabled,
                 name_text_hold_callback = optionsutil.showValues,
@@ -665,7 +672,7 @@ All spaces on one line receive the same adjustment. A remaining pixel fraction i
                     end
                     return string.format("%.2f\u{202F}%%", val / 100)
                 end,
-                help_text = _([[Disabled because page-level justification no longer changes inter-letter spacing.]]),
+                help_text = _([[Maximum change in normalized microtracking between consecutive justified lines. The default allows a 0.50 percentage-point change.]]),
             },
             {   -- ReaderFont
                 name = "justification_tolerance",

@@ -12,7 +12,9 @@ Install
    to 16 pt, Font Kerning to Best, Kerning Precision to High, and Page-level
    Justification to page-level. Its complete Knuth tuning controls are directly
    beside that setting.
-6. Enable Hanging punctuation under the normal Typography rules menu.
+6. Set Letter-space Limits to -1% fallback. This uses microtracking only when
+   minimum word spacing cannot fit an otherwise better line break.
+7. Enable Hanging punctuation under the normal Typography rules menu.
 
 There is no Knuth plugin and no plugin menu in this build. Page-level layout,
 its settings, profile persistence and the matching fractional-kerning engine
@@ -23,7 +25,8 @@ Included
 - complete official KOReader v2026.07.1 Kindle package and KUAL launcher
 - live CREngine PR #685 head e229b669 (fractional positioning strength)
 - page-level Knuth refinement with weighted baseline word spacing
-- exact HarfBuzz inter-letter spacing in page-level mode; no microtracking
+- continuous 1/64-pixel kerning and bounded negative microtracking pen
+- microtracking only as an overfull-line fallback, never for routine rounding
 - free automatic, explicit, consecutive and final-adjacent hyphenation
 - hanging-punctuation-aware optical metrics
 - Literata upright and italic variable fonts from Google Fonts, under OFL-1.1
