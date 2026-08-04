@@ -1,4 +1,4 @@
-KOReader v2026.07.1 all-in-one Kindle package
+KOReader v2026.07.1 integrated Kindle package
 Page-level Knuth justification + fractional best kerning + Literata
 
 Install
@@ -8,15 +8,15 @@ Install
    koreader directory first; that preserves settings and reading history.
 3. Fully restart KOReader through KUAL.
 4. Open a reflowable document.
-5. Open Top menu > Page-level Knuth justification and select either:
+5. Open the normal bottom text-settings menu. Set Font to Literata, Font Size
+   to 16 pt, Font Kerning to Best, Kerning Precision to High, and Page-level
+   Justification to page-level. Its complete Knuth tuning controls are directly
+   beside that setting.
+6. Enable Hanging punctuation under the normal Typography rules menu.
 
-   Literata 16 pt · Best/High · Greedy
-   Literata 16 pt · Best/High · Page-level
-
-Both comparison presets use the bundled Literata family, 16 pt, Best HarfBuzz
-kerning, High fractional precision, forced justification, hanging punctuation,
-and identical spacing limits. The second preset additionally enables page-level
-Knuth optimization.
+There is no Knuth plugin and no plugin menu in this build. Page-level layout,
+its settings, profile persistence and the matching fractional-kerning engine
+are integrated into KOReader itself.
 
 Included
 --------
@@ -28,8 +28,8 @@ Included
 - Literata upright and italic variable fonts from Google Fonts, under OFL-1.1
 - legacy 4/8/16/32/64 kerning-setting migration
 - Profiles support for both Knuth and fractional-kerning settings
+- normal core settings for page-level mode and every Knuth tuning parameter
 
-The stock official libkoreader-cre.so remains present. A version-locked startup
-patch loads the bundled combined engine under a separate filename. After an
-official KOReader update, the old engine refuses to load and KOReader safely
-falls back to stock until a matching combined package is installed.
+This package installs its matching combined engine as the normal
+libs/libkoreader-cre.so. An official KOReader update will replace it, so install
+a new matching integrated package when upgrading KOReader.

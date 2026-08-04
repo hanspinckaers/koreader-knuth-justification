@@ -1,0 +1,2 @@
+-- Compatibility tombstone for the earlier overlay package.
+-- Fractional-kerning profile support is integrated directly into Profiles.

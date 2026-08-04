@@ -33,16 +33,20 @@ done
 for path in \
     frontend/document/credocument.lua \
     frontend/apps/reader/modules/readerfont.lua \
+    frontend/apps/reader/modules/readertypeset.lua \
     frontend/ui/data/creoptions.lua
 do
     install -m 0644 "$repo_dir/combined/$path" "$koreader_dir/$path"
 done
 
 rm -rf "$koreader_dir/plugins/knuthjustification.koplugin"
-mkdir -p "$koreader_dir/plugins/knuthjustification.koplugin"
-cp -R "$repo_dir/combined/plugin/." \
-    "$koreader_dir/plugins/knuthjustification.koplugin/"
-install -m 0644 "$repo_dir/combined/patches/12-kerning-profiles.lua" \
+install -m 0644 "$repo_dir/combined/plugins/profiles.koplugin/main.lua" \
+    "$koreader_dir/plugins/profiles.koplugin/main.lua"
+install -m 0644 "$repo_dir/combined/patches/10-knuth-cre-integrated.lua" \
+    "$koreader_dir/patches/10-knuth-cre.lua"
+install -m 0644 "$repo_dir/combined/patches/11-knuth-profiles-integrated.lua" \
+    "$koreader_dir/patches/11-knuth-profiles.lua"
+install -m 0644 "$repo_dir/combined/patches/12-kerning-profiles-integrated.lua" \
     "$koreader_dir/patches/12-kerning-profiles.lua"
 
-echo "Synced combined Knuth + fractional-kerning sources into $koreader_dir"
+echo "Synced integrated Knuth + fractional-kerning sources into $koreader_dir"

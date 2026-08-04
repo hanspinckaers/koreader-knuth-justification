@@ -4,7 +4,7 @@ set -eu
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 official_zip=${1:?usage: package-combined-kindle.sh official-kindle.zip built-libkoreader-cre.so [output.zip]}
 built_library=${2:?usage: package-combined-kindle.sh official-kindle.zip built-libkoreader-cre.so [output.zip]}
-output=${3:-$repo_dir/dist/koreader-v2026.07.1-kindle-knuth-fractional-literata.zip}
+output=${3:-$repo_dir/dist/koreader-v2026.07.1-kindle-knuth-core-fractional-literata.zip}
 case "$output" in
     /*) ;;
     *) output=$(pwd)/$output ;;
@@ -23,26 +23,24 @@ trap 'rm -rf -- "$stage_dir" "$archive_dir"' EXIT HUP INT TERM
 unzip -q "$official_zip" -d "$stage_dir"
 
 install -D -m 0644 "$built_library" \
-    "$stage_dir/koreader/libs/libkoreader-cre-knuth-page-v2026.07.1.so"
-install -D -m 0644 "$repo_dir/patches/10-knuth-cre.lua" \
+    "$stage_dir/koreader/libs/libkoreader-cre.so"
+install -D -m 0644 "$repo_dir/combined/patches/10-knuth-cre-integrated.lua" \
     "$stage_dir/koreader/patches/10-knuth-cre.lua"
-install -D -m 0644 "$repo_dir/patches/11-knuth-profiles.lua" \
+install -D -m 0644 "$repo_dir/combined/patches/11-knuth-profiles-integrated.lua" \
     "$stage_dir/koreader/patches/11-knuth-profiles.lua"
-install -D -m 0644 "$repo_dir/combined/patches/12-kerning-profiles.lua" \
+install -D -m 0644 "$repo_dir/combined/patches/12-kerning-profiles-integrated.lua" \
     "$stage_dir/koreader/patches/12-kerning-profiles.lua"
-
-rm -rf "$stage_dir/koreader/plugins/knuthjustification.koplugin"
-mkdir -p "$stage_dir/koreader/plugins/knuthjustification.koplugin"
-cp -R "$repo_dir/combined/plugin/." \
-    "$stage_dir/koreader/plugins/knuthjustification.koplugin/"
 
 for path in \
     frontend/document/credocument.lua \
     frontend/apps/reader/modules/readerfont.lua \
+    frontend/apps/reader/modules/readertypeset.lua \
     frontend/ui/data/creoptions.lua
 do
     install -m 0644 "$repo_dir/combined/$path" "$stage_dir/koreader/$path"
 done
+install -m 0644 "$repo_dir/combined/plugins/profiles.koplugin/main.lua" \
+    "$stage_dir/koreader/plugins/profiles.koplugin/main.lua"
 
 install -D -m 0644 "$repo_dir/combined/fonts/Literata-Variable.ttf" \
     "$stage_dir/koreader/fonts/Literata-Variable.ttf"

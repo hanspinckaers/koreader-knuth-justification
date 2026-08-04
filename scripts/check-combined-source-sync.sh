@@ -35,6 +35,7 @@ done
 for path in \
     frontend/document/credocument.lua \
     frontend/apps/reader/modules/readerfont.lua \
+    frontend/apps/reader/modules/readertypeset.lua \
     frontend/ui/data/creoptions.lua
 do
     if ! cmp -s "$repo_dir/combined/$path" "$koreader_dir/$path"; then
@@ -43,15 +44,21 @@ do
     fi
 done
 
-if ! diff -qr "$repo_dir/combined/plugin" \
-        "$koreader_dir/plugins/knuthjustification.koplugin" >/dev/null; then
-    echo "different: combined plugin" >&2
+if [ -d "$koreader_dir/plugins/knuthjustification.koplugin" ]; then
+    echo "unexpected: Knuth plugin still present" >&2
     status=1
 fi
-if ! cmp -s "$repo_dir/combined/patches/12-kerning-profiles.lua" \
-        "$koreader_dir/patches/12-kerning-profiles.lua"; then
-    echo "different: patches/12-kerning-profiles.lua" >&2
+if ! cmp -s "$repo_dir/combined/plugins/profiles.koplugin/main.lua" \
+        "$koreader_dir/plugins/profiles.koplugin/main.lua"; then
+    echo "different: integrated Profiles" >&2
     status=1
 fi
+for patch in 10-knuth-cre 11-knuth-profiles 12-kerning-profiles; do
+    if ! cmp -s "$repo_dir/combined/patches/${patch}-integrated.lua" \
+            "$koreader_dir/patches/$patch.lua"; then
+        echo "different: patches/$patch.lua" >&2
+        status=1
+    fi
+done
 
 exit "$status"

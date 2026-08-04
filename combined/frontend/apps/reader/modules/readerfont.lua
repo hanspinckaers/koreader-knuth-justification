@@ -194,6 +194,17 @@ function ReaderFont:onReadSettings(config)
     self.ui.document:setFontFractionalPositioning(self.configurable.font_fractional_positioning)
     self.ui.document:setWordSpacing(self.configurable.word_spacing)
     self.ui.document:setWordExpansion(self.configurable.word_expansion)
+    self.ui.document:setLineBreakingMode(self.configurable.line_breaking_mode)
+    self.ui.document:setJustificationWordSpacing(self.configurable.justification_word_spacing)
+    self.ui.document:setJustificationLetterSpacing(self.configurable.justification_letter_spacing)
+    self.ui.document:setJustificationTrackingSmoothness(self.configurable.justification_tracking_smoothness)
+    self.ui.document:setJustificationTolerance(self.configurable.justification_tolerance)
+    self.configurable.justification_hyphen_penalty = { 0, 0 }
+    self.ui.document:setJustificationHyphenPenalty(self.configurable.justification_hyphen_penalty)
+    self.ui.document:setJustificationLinePenalty(self.configurable.justification_line_penalty)
+    self.configurable.justification_hyphen_demerits = { 0, 0 }
+    self.ui.document:setJustificationHyphenDemerits(self.configurable.justification_hyphen_demerits)
+    self.ui.document:setJustificationLineLimits(self.configurable.justification_line_limits)
     self.ui.document:setCJKWidthScaling(self.configurable.cjk_width_scaling)
     self.ui.document:setInterlineSpacePercent(self.configurable.line_spacing)
     self.ui.document:setGammaIndex(self.configurable.font_gamma)
@@ -286,6 +297,66 @@ function ReaderFont:onSetWordExpansion(value)
     self.ui:handleEvent(Event:new("UpdatePos"))
     Notification:notify(T(_("Word expansion set to: %1%."), value))
     return true
+end
+
+function ReaderFont:onSetLineBreakingMode(value)
+    self.configurable.line_breaking_mode = value
+    self.ui.document:setLineBreakingMode(value)
+    self.ui:handleEvent(Event:new("UpdatePos"))
+    Notification:notify(T(_("Line breaking set to: %1"), optionsutil:getOptionText("SetLineBreakingMode", value)))
+    return true
+end
+
+local function setJustificationPair(self, name, values, setter, label)
+    self.configurable[name] = values
+    self.ui.document[setter](self.ui.document, values)
+    self.ui:handleEvent(Event:new("UpdatePos"))
+    Notification:notify(T(_("%1 set to: %2, %3."), label, values[1], values[2]))
+    return true
+end
+
+function ReaderFont:onSetJustificationWordSpacing(values)
+    return setJustificationPair(self, "justification_word_spacing", values,
+        "setJustificationWordSpacing", _("Justification word spacing"))
+end
+
+function ReaderFont:onSetJustificationLetterSpacing(values)
+    return setJustificationPair(self, "justification_letter_spacing", values,
+        "setJustificationLetterSpacing", _("Justification letter spacing"))
+end
+
+function ReaderFont:onSetJustificationTrackingSmoothness(value)
+    self.configurable.justification_tracking_smoothness = value
+    self.ui.document:setJustificationTrackingSmoothness(value)
+    self.ui:handleEvent(Event:new("UpdatePos"))
+    Notification:notify(T(_("Maximum adjacent-line letter-spacing change set to: %1."),
+        value == 0 and _("off") or string.format("%.2f%%", value / 100)))
+    return true
+end
+
+function ReaderFont:onSetJustificationTolerance(values)
+    return setJustificationPair(self, "justification_tolerance", values,
+        "setJustificationTolerance", _("Justification tolerance"))
+end
+
+function ReaderFont:onSetJustificationHyphenPenalty(values)
+    return setJustificationPair(self, "justification_hyphen_penalty", { 0, 0 },
+        "setJustificationHyphenPenalty", _("Hyphen penalties"))
+end
+
+function ReaderFont:onSetJustificationLinePenalty(values)
+    return setJustificationPair(self, "justification_line_penalty", values,
+        "setJustificationLinePenalty", _("Line penalties"))
+end
+
+function ReaderFont:onSetJustificationHyphenDemerits(values)
+    return setJustificationPair(self, "justification_hyphen_demerits", { 0, 0 },
+        "setJustificationHyphenDemerits", _("Repeated hyphen penalties"))
+end
+
+function ReaderFont:onSetJustificationLineLimits(values)
+    return setJustificationPair(self, "justification_line_limits", values,
+        "setJustificationLineLimits", _("Line limits"))
 end
 
 function ReaderFont:onSetCJKWidthScaling(value)

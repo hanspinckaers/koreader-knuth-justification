@@ -71,22 +71,22 @@ Install official KOReader `v2026.07.1`, then merge a release overlay's
 `koreader/` directory into the existing installation and fully restart KOReader.
 The controls appear under **Top menu → Page-level Knuth justification**.
 
-## All-in-one fractional-kerning build
+## Integrated fractional-kerning build
 
 `combined/` adds CREngine PR #685 at `e229b669`, the four-level Kerning
 Precision UI, legacy setting migration, the complete Literata variable family,
-and two one-tap 16 pt comparison presets. Each preset enables hyphenation,
-hanging punctuation, and forced justification; the optimized preset also turns
-on page-level Knuth refinement. It is packaged as a complete official Kindle
-installation rather than a small overlay:
+and all page-level Knuth controls directly in KOReader's normal document
+settings. The combined engine is installed as the normal CREngine library; this
+variant does not load or use the Knuth plugin or startup preload patch. It is
+packaged as a complete official Kindle installation rather than a small overlay:
 
 ```sh
 ./scripts/build-combined-kindle.sh /path/to/koreader-v2026.07.1 \
     /path/to/koreader-kindle-v2026.07.1.zip
 ```
 
-This combined package is separate from the page-only release. The page-only
-variant continues to preserve stock official kerning.
+This integrated package is separate from the historical page-only plugin
+release. The page-only variant continues to preserve stock official kerning.
 
 ## License
 

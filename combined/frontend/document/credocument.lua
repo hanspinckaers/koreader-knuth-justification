@@ -1308,6 +1308,11 @@ function CreDocument:setFontFractionalPositioning(strength)
     self._document:setIntProperty("font.fractional.positioning", strength)
 end
 
+function CreDocument:setCenterNearlyFullPages(toggle)
+    logger.dbg("CreDocument: center nearly full pages", toggle)
+    self._document:setIntProperty("crengine.page.center.nearly.full", toggle and 1 or 0)
+end
+
 function CreDocument:setWordSpacing(values)
     -- values should be a table of 2 numbers (e.g.: { 90, 75 })
     -- - space width scale percent (hard scale the width of each space char in
@@ -1323,6 +1328,58 @@ end
 function CreDocument:setWordExpansion(value)
     logger.dbg("CreDocument: set word expansion", value)
     self._document:setIntProperty("crengine.style.max.added.letter.spacing.percent", value or 0)
+end
+
+function CreDocument:setLineBreakingMode(value)
+    logger.dbg("CreDocument: set line breaking mode", value)
+    self._document:setIntProperty("crengine.style.line.breaking.mode", value or 0)
+end
+
+function CreDocument:setJustificationWordSpacing(values)
+    logger.dbg("CreDocument: set optimized space shrink/stretch", values[1], values[2])
+    self._document:setIntProperty("crengine.style.justify.space.shrink.percent", values[1])
+    self._document:setIntProperty("crengine.style.justify.space.stretch.percent", values[2])
+end
+
+function CreDocument:setJustificationLetterSpacing(values)
+    logger.dbg("CreDocument: set optimized tracking shrink/stretch", values[1], values[2])
+    self._document:setIntProperty("crengine.style.justify.tracking.shrink.percent", values[1])
+    self._document:setIntProperty("crengine.style.justify.tracking.stretch.percent", values[2])
+end
+
+function CreDocument:setJustificationTrackingSmoothness(value)
+    logger.dbg("CreDocument: set optimized adjacent-line tracking delta", value)
+    self._document:setIntProperty("crengine.style.justify.tracking.delta.max.bp", value or 0)
+end
+
+function CreDocument:setJustificationTolerance(values)
+    logger.dbg("CreDocument: set optimized pre/tolerance", values[1], values[2])
+    self._document:setIntProperty("crengine.style.justify.pretolerance", values[1])
+    self._document:setIntProperty("crengine.style.justify.tolerance", values[2])
+end
+
+function CreDocument:setJustificationHyphenPenalty(values)
+    logger.dbg("CreDocument: set optimized automatic/explicit hyphen penalties", values[1], values[2])
+    self._document:setIntProperty("crengine.style.justify.hyphen.penalty", values[1])
+    self._document:setIntProperty("crengine.style.justify.explicit.hyphen.penalty", values[2])
+end
+
+function CreDocument:setJustificationLinePenalty(values)
+    logger.dbg("CreDocument: set optimized line/adjacent penalties", values[1], values[2])
+    self._document:setIntProperty("crengine.style.justify.line.penalty", values[1])
+    self._document:setIntProperty("crengine.style.justify.adjacent.demerits", values[2])
+end
+
+function CreDocument:setJustificationHyphenDemerits(values)
+    logger.dbg("CreDocument: set optimized consecutive/final hyphen demerits", values[1], values[2])
+    self._document:setIntProperty("crengine.style.justify.double.hyphen.demerits", values[1])
+    self._document:setIntProperty("crengine.style.justify.final.hyphen.demerits", values[2])
+end
+
+function CreDocument:setJustificationLineLimits(values)
+    logger.dbg("CreDocument: set optimized emergency stretch/last-line minimum", values[1], values[2])
+    self._document:setIntProperty("crengine.style.justify.emergency.stretch.percent", values[1])
+    self._document:setIntProperty("crengine.style.justify.last.line.min.percent", values[2])
 end
 
 function CreDocument:setCJKWidthScaling(value)

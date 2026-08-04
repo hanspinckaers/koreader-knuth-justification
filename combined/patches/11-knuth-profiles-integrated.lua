@@ -1,0 +1,2 @@
+-- Compatibility tombstone for the earlier overlay package.
+-- Profile support is integrated directly into profiles.koplugin/main.lua.

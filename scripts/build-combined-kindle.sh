@@ -4,7 +4,7 @@ set -eu
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 koreader_dir=${1:?usage: build-combined-kindle.sh /path/to/koreader-v2026.07.1 official-kindle.zip [output.zip]}
 official_zip=${2:?usage: build-combined-kindle.sh /path/to/koreader-v2026.07.1 official-kindle.zip [output.zip]}
-output=${3:-$repo_dir/dist/koreader-v2026.07.1-kindle-knuth-fractional-literata.zip}
+output=${3:-$repo_dir/dist/koreader-v2026.07.1-kindle-knuth-core-fractional-literata.zip}
 toolchain_bin=${KINDLE_TOOLCHAIN_BIN:-/root/x-tools/arm-kindle5-linux-gnueabi/bin}
 
 "$repo_dir/scripts/sync-combined-to-koreader.sh" "$koreader_dir"

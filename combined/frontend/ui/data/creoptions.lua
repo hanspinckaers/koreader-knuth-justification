@@ -46,6 +46,18 @@ local function prettifyCreWeights(t)
     return p
 end
 
+local function optimizedJustificationEnabled(configurable)
+    return optionsutil.enableIfEquals(configurable, "line_breaking_mode", 1)
+end
+
+local function percentPair(val)
+    return string.format("−%d\u{202F}%% / +%d\u{202F}%%", val[1], val[2])
+end
+
+local function numberPair(val)
+    return string.format("%d / %d", val[1], val[2])
+end
+
 local CreOptions = {
     prefix = "copt",
     {
@@ -190,6 +202,19 @@ This is disabled in scroll mode. Switching from page mode with two columns to sc
 - 'on' keeps top and bottom margins locked, ensuring text is vertically centered in the page.
 
 In the top menu → Settings → Status bar, you can choose whether the bottom margin applies from the bottom of the screen, or from above the status bar.]]),
+            },
+            {   -- ReaderTypeset
+                name = "center_nearly_full_pages",
+                name_text = _("Center Nearly Full Pages"),
+                toggle = {C_("Center nearly full pages", "off"), C_("Center nearly full pages", "on")},
+                values = {0, 1},
+                default_value = 1,
+                event = "SetCenterNearlyFullPages",
+                args = {0, 1},
+                name_text_hold_callback = optionsutil.showValues,
+                help_text = _([[Vertically balance only pages that are already nearly full.
+
+When the remaining blank height is no more than one text line, half is placed above and half below the text. Short chapter endings, title pages, covers and pages with footnotes stay top-aligned.]]),
             },
             {   -- ReaderTypeset
                 name = "t_page_margin",
@@ -528,12 +553,286 @@ Note that your selected font size is not affected by this setting.]]),
                     G_defaults:readSetting("DCREREADER_CONFIG_WORD_EXPANSION_MORE"),
                 },
                 event = "SetWordExpansion",
-                help_text = _([[On justified lines having too wide spaces, allow distributing the excessive space into words by expanding them with letter spacing. This sets the max allowed letter spacing as a % of the font size.]]),
+                enabled_func = function(configurable)
+                    return optionsutil.enableIfEquals(configurable, "line_breaking_mode", 0)
+                end,
+                help_text = _([[On justified lines having too wide spaces, allow distributing the excessive space into words by expanding them with letter spacing. This sets the max allowed letter spacing as a % of the font size.
+
+This legacy setting is disabled when Page-level Justification is enabled; use the separate Letter-space Limits there.]]),
                 name_text_hold_callback = optionsutil.showValues,
                 name_text_true_values = true,
                 show_true_value_func = function(val)
                     return string.format("%d\u{202F}%%", val) -- use Narrow No-Break space here
                 end,
+            },
+            {   -- ReaderFont
+                name = "line_breaking_mode",
+                name_text = _("Page-level Justification"),
+                toggle = {C_("Line breaking", "greedy"), C_("Line breaking", "page-level")},
+                values = {0, 1},
+                default_value = 1,
+                args = {0, 1},
+                event = "SetLineBreakingMode",
+                name_text_hold_callback = optionsutil.showValues,
+                help_text = _([[Choose how justified Latin text is split into lines.
+
+- greedy: KOReader's existing line-by-line strategy.
+- page-level: refine all paragraphs on a page against one shared word-space baseline.
+
+Page-level mode performs an initial pagination followed by up to two bounded refinement passes. It falls back to greedy mode for complex layout, bidirectional text, and CJK text.]]),
+            },
+            {   -- ReaderFont
+                name = "justification_word_spacing",
+                name_text = _("Word-space Limits"),
+                more_options = true,
+                more_options_param = {
+                    name = "justification_word_spacing",
+                    name_text = _("Page-level word-space limits"),
+                    info_text = _([[Set the maximum contraction and expansion of every adjustable word space, as percentages of its natural width.
+
+All spaces on one line receive the same adjustment. A remaining pixel fraction is handled with bounded letter spacing instead of making the first spaces wider.]]),
+                    left_text = _("Max −"),
+                    left_min = 0,
+                    left_max = 100,
+                    left_step = 1,
+                    left_hold_step = 5,
+                    right_text = _("Max +"),
+                    right_min = 0,
+                    right_max = 200,
+                    right_step = 1,
+                    right_hold_step = 5,
+                    unit = "%",
+                    event = "SetJustificationWordSpacing",
+                },
+                toggle = {C_("Justification spacing", "tight"), C_("Justification spacing", "balanced"), C_("Justification spacing", "loose")},
+                values = {{25, 35}, {33, 50}, {40, 75}},
+                default_value = {25, 35},
+                args = {{25, 35}, {33, 50}, {40, 75}},
+                event = "SetJustificationWordSpacing",
+                enabled_func = optimizedJustificationEnabled,
+                name_text_hold_callback = optionsutil.showValues,
+                name_text_true_values = true,
+                show_true_value_func = percentPair,
+                help_text = _([[Maximum word-space contraction and expansion used by page-level justification. The default is −25% / +35%.]]),
+            },
+            {   -- ReaderFont
+                name = "justification_letter_spacing",
+                name_text = _("Letter-space Limits"),
+                more_options = true,
+                more_options_param = {
+                    name = "justification_letter_spacing",
+                    name_text = _("Maximum letter-spacing adjustment"),
+                    info_text = _([[Set the maximum negative and positive microtracking used to finish a line after its word spaces have been adjusted.
+
+The values are percentages of the line's natural text width. With precise kerning enabled, one continuous fractional adjustment is distributed across all glyph gaps on the line.]]),
+                    left_text = _("Max −"),
+                    left_min = 0,
+                    left_max = 20,
+                    left_step = 1,
+                    left_hold_step = 2,
+                    right_text = _("Max +"),
+                    right_min = 0,
+                    right_max = 20,
+                    right_step = 1,
+                    right_hold_step = 2,
+                    unit = "%",
+                    event = "SetJustificationLetterSpacing",
+                },
+                toggle = {C_("Letter spacing", "off"), C_("Letter spacing", "never expand"), C_("Letter spacing", "bidirectional")},
+                values = {{0, 0}, {1, 0}, {1, 1}},
+                default_value = {1, 0},
+                args = {{0, 0}, {1, 0}, {1, 1}},
+                event = "SetJustificationLetterSpacing",
+                enabled_func = optimizedJustificationEnabled,
+                name_text_hold_callback = optionsutil.showValues,
+                name_text_true_values = true,
+                show_true_value_func = percentPair,
+                help_text = _([[Maximum negative and positive letter-spacing adjustment. Never Expand allows up to 1% contraction but prohibits positive tracking, including pixel remainders and emergency fitting. Any required positive remainder goes into the equal word gaps or causes a different line break.]]),
+            },
+            {   -- ReaderFont
+                name = "justification_tracking_smoothness",
+                name_text = _("Letter-space Smoothness"),
+                toggle = {
+                    C_("Adjacent-line letter spacing", "off"),
+                    C_("Adjacent-line letter spacing", "strict"),
+                    C_("Adjacent-line letter spacing", "smooth"),
+                    C_("Adjacent-line letter spacing", "relaxed"),
+                },
+                -- Stored as basis points: 50 means 0.50 percentage points.
+                values = {0, 25, 50, 100},
+                default_value = 50,
+                args = {0, 25, 50, 100},
+                event = "SetJustificationTrackingSmoothness",
+                enabled_func = optimizedJustificationEnabled,
+                name_text_hold_callback = optionsutil.showValues,
+                name_text_true_values = true,
+                show_true_value_func = function(val)
+                    if val == 0 then
+                        return _("off")
+                    end
+                    return string.format("%.2f\u{202F}%%", val / 100)
+                end,
+                help_text = _([[Maximum change in normalized letter spacing between consecutive justified lines of the same paragraph.
+
+The optimizer measures the actual line-wide microtracking left after equal word spacing has been applied. It rejects line-break sequences whose adjacent tracking differs by more than this limit. The ragged final line is excluded because it is not letter-spaced.]]),
+            },
+            {   -- ReaderFont
+                name = "justification_tolerance",
+                name_text = _("Fit Tolerance"),
+                more_options = true,
+                more_options_param = {
+                    name = "justification_tolerance",
+                    name_text = _("Knuth fit tolerances"),
+                    info_text = _([[Pretolerance is used for the first pass without automatic hyphenation. Tolerance is used for later passes with free hyphenation. Lower values reject uneven lines more aggressively.]]),
+                    left_text = _("Before hyphens"),
+                    left_min = 0,
+                    left_max = 10000,
+                    left_step = 10,
+                    left_hold_step = 100,
+                    right_text = _("With hyphens"),
+                    right_min = 0,
+                    right_max = 10000,
+                    right_step = 10,
+                    right_hold_step = 100,
+                    event = "SetJustificationTolerance",
+                },
+                toggle = {C_("Fit tolerance", "strict"), C_("Fit tolerance", "balanced"), C_("Fit tolerance", "forgiving")},
+                values = {{50, 100}, {100, 200}, {200, 500}},
+                default_value = {100, 200},
+                args = {{50, 100}, {100, 200}, {200, 500}},
+                event = "SetJustificationTolerance",
+                enabled_func = optimizedJustificationEnabled,
+                name_text_hold_callback = optionsutil.showValues,
+                name_text_true_values = true,
+                show_true_value_func = numberPair,
+                help_text = _([[Knuth badness limits for the no-hyphen and hyphenation passes.]]),
+            },
+            {   -- ReaderFont
+                name = "justification_hyphen_penalty",
+                name_text = _("Hyphen Penalties"),
+                more_options = true,
+                more_options_param = {
+                    name = "justification_hyphen_penalty",
+                    name_text = _("Hyphen break penalties"),
+                    info_text = _([[Set the cost of a break at an automatically inserted hyphen and at a hyphen already present in the text. Larger values make that kind of break less likely.]]),
+                    left_text = _("Automatic"),
+                    left_min = 0,
+                    left_max = 0,
+                    left_step = 10,
+                    left_hold_step = 100,
+                    right_text = _("Explicit"),
+                    right_min = 0,
+                    right_max = 0,
+                    right_step = 10,
+                    right_hold_step = 100,
+                    event = "SetJustificationHyphenPenalty",
+                },
+                toggle = {C_("Hyphen penalty", "zero (free)")},
+                values = {{0, 0}},
+                default_value = {0, 0},
+                args = {{0, 0}},
+                event = "SetJustificationHyphenPenalty",
+                enabled_func = optimizedJustificationEnabled,
+                name_text_hold_callback = optionsutil.showValues,
+                name_text_true_values = true,
+                show_true_value_func = numberPair,
+                help_text = _([[Automatic and explicit hyphens have zero cost.]]),
+            },
+            {   -- ReaderFont
+                name = "justification_line_penalty",
+                name_text = _("Line-quality Penalties"),
+                more_options = true,
+                more_options_param = {
+                    name = "justification_line_penalty",
+                    name_text = _("Line-quality penalties"),
+                    info_text = _([[Line penalty is added before badness is squared. Adjacent-fitness demerits penalize neighbouring lines whose spacing classes differ sharply.]]),
+                    left_text = _("Line"),
+                    left_min = 0,
+                    left_max = 10000,
+                    left_step = 1,
+                    left_hold_step = 10,
+                    right_text = _("Adjacent fit"),
+                    right_min = 0,
+                    right_max = 100000,
+                    right_step = 100,
+                    right_hold_step = 1000,
+                    event = "SetJustificationLinePenalty",
+                },
+                toggle = {C_("Line quality", "relaxed"), C_("Line quality", "balanced"), C_("Line quality", "smooth")},
+                values = {{10, 5000}, {10, 10000}, {10, 20000}},
+                default_value = {10, 10000},
+                args = {{10, 5000}, {10, 10000}, {10, 20000}},
+                event = "SetJustificationLinePenalty",
+                enabled_func = optimizedJustificationEnabled,
+                name_text_hold_callback = optionsutil.showValues,
+                name_text_true_values = true,
+                show_true_value_func = numberPair,
+                help_text = _([[Base line penalty and the penalty for abrupt spacing changes between adjacent lines.]]),
+            },
+            {   -- ReaderFont
+                name = "justification_hyphen_demerits",
+                name_text = _("Repeated-hyphen Penalties"),
+                more_options = true,
+                more_options_param = {
+                    name = "justification_hyphen_demerits",
+                    name_text = _("Repeated and final hyphen penalties"),
+                    info_text = _([[Set extra demerits for consecutive hyphenated lines and for ending the penultimate line with a hyphen.]]),
+                    left_text = _("Consecutive"),
+                    left_min = 0,
+                    left_max = 0,
+                    left_step = 100,
+                    left_hold_step = 1000,
+                    right_text = _("Before ending"),
+                    right_min = 0,
+                    right_max = 0,
+                    right_step = 100,
+                    right_hold_step = 1000,
+                    event = "SetJustificationHyphenDemerits",
+                },
+                toggle = {C_("Repeated hyphens", "zero (free)")},
+                values = {{0, 0}},
+                default_value = {0, 0},
+                args = {{0, 0}},
+                event = "SetJustificationHyphenDemerits",
+                enabled_func = optimizedJustificationEnabled,
+                name_text_hold_callback = optionsutil.showValues,
+                name_text_true_values = true,
+                show_true_value_func = numberPair,
+                help_text = _([[Consecutive and final-line-adjacent hyphens have zero extra cost.]]),
+            },
+            {   -- ReaderFont
+                name = "justification_line_limits",
+                name_text = _("Emergency & Ending"),
+                more_options = true,
+                more_options_param = {
+                    name = "justification_line_limits",
+                    name_text = _("Emergency stretch and paragraph ending"),
+                    info_text = _([[Emergency stretch is extra virtual flexibility used only when normal passes cannot find a solution. Minimum ending width prefers a final line at least this percentage of the text measure.]]),
+                    left_text = _("Emergency"),
+                    left_min = 0,
+                    left_max = 100,
+                    left_step = 1,
+                    left_hold_step = 5,
+                    right_text = _("Ending min"),
+                    right_min = 0,
+                    right_max = 100,
+                    right_step = 1,
+                    right_hold_step = 5,
+                    unit = "%",
+                    event = "SetJustificationLineLimits",
+                },
+                toggle = {C_("Paragraph ending", "natural"), C_("Paragraph ending", "balanced"), C_("Paragraph ending", "long")},
+                values = {{6, 0}, {6, 33}, {8, 50}},
+                default_value = {6, 33},
+                args = {{6, 0}, {6, 33}, {8, 50}},
+                event = "SetJustificationLineLimits",
+                enabled_func = optimizedJustificationEnabled,
+                name_text_hold_callback = optionsutil.showValues,
+                name_text_true_values = true,
+                show_true_value_func = function(val)
+                    return string.format("%d\u{202F}%% / %d\u{202F}%%", val[1], val[2])
+                end,
+                help_text = _([[Emergency-stretch budget and preferred minimum final-line width, both as percentages of the line measure.]]),
             },
             {   -- ReaderFont
                 -- This option is not shown in the bottom menu, but its fine tuning is made
@@ -669,7 +968,7 @@ If a font variation is not available, as well as for fractional adjustments, it 
                     C_("Font fractional positioning", "high"),
                 },
                 values = {0, 1, 2, 3},
-                default_value = 2,
+                default_value = 3,
                 args = {0, 1, 2, 3},
                 event = "SetFontFractionalPositioning",
                 name_text_hold_callback = optionsutil.showValues,
