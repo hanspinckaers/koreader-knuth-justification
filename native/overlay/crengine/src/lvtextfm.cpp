@@ -20,6 +20,7 @@
 #include "../include/crsetup.h"
 #include "../include/lvfnt.h"
 #include "../include/lvtextfm.h"
+#include "../include/knuthpagespacing.h"
 #include "../include/lvdrawbuf.h"
 #include "../include/fb2def.h"
 
@@ -74,12 +75,14 @@
 formatted_line_t * lvtextAllocFormattedLine( )
 {
     formatted_line_t * pline = (formatted_line_t *)calloc(1, sizeof(*pline));
+    pline->justify_space_target_x64 = -1;
     return pline;
 }
 
 formatted_line_t * lvtextAllocFormattedLineCopy( formatted_word_t * words, int word_count )
 {
     formatted_line_t * pline = (formatted_line_t *)calloc(1, sizeof(*pline));
+    pline->justify_space_target_x64 = -1;
     lUInt32 size = (word_count + FRM_ALLOC_SIZE-1) / FRM_ALLOC_SIZE * FRM_ALLOC_SIZE;
     pline->words = (formatted_word_t*)malloc( sizeof(formatted_word_t)*(size) );
     memcpy( pline->words, words, word_count * sizeof(formatted_word_t) );
@@ -200,6 +203,7 @@ formatted_text_fragment_t * lvtextAllocFormatter( lUInt16 width )
     pbuffer->justify_emergency_stretch_percent = DEF_JUSTIFY_EMERGENCY_STRETCH_PERCENT;
     pbuffer->justify_last_line_min_percent = DEF_JUSTIFY_LAST_LINE_MIN_PERCENT;
     pbuffer->justify_tracking_delta_max_bp = DEF_JUSTIFY_TRACKING_DELTA_MAX_BP;
+    pbuffer->justify_page_space_target_x64 = -1;
     pbuffer->cjk_width_scale_percent = CJK_WIDTH_SCALE_PERCENT; // 100% (keep original width)
 
     return pbuffer;
@@ -5165,7 +5169,12 @@ public:
     struct OptimalLineBreak {
         int pos;
         bool hyphenated;
-        OptimalLineBreak(int p, bool h) : pos(p), hyphenated(h) {}
+        int space_count;
+        int space_target_x64;
+        int hanging_width;
+        OptimalLineBreak(int p, bool h, int c, int s, int o)
+            : pos(p), hyphenated(h), space_count(c),
+              space_target_x64(s), hanging_width(o) {}
     };
 
     bool canOptimizeParagraph(src_text_fragment_t * para, bool preFormattedOnly) {
@@ -5376,12 +5385,10 @@ public:
                 bool explicit_hyphen = m_text[i] == '-' ||
                         m_text[i] == UNICODE_HYPHEN;
                 candidates.push_back(OptimalBreakCandidate(i, false,
-                        explicit_hyphen, explicit_hyphen
-                                ? m_pbuffer->justify_explicit_hyphen_penalty : 0));
+                        explicit_hyphen, 0));
             }
             if ( allow_hyphens && hyphenation[i] && !normal_wrap ) {
-                candidates.push_back(OptimalBreakCandidate(i, true, true,
-                        m_pbuffer->justify_hyphen_penalty));
+                candidates.push_back(OptimalBreakCandidate(i, true, true, 0));
             }
         }
         if ( candidates.empty() )
@@ -5459,6 +5466,9 @@ public:
         std::vector<int> previous_candidate(state_count, -2);
         std::vector<int> previous_fitness(state_count, -1);
         std::vector<int> last_tracking_basis_points(state_count, 0);
+        std::vector<int> selected_space_count(state_count, 0);
+        std::vector<int> selected_space_target_x64(state_count, -1);
+        std::vector<int> selected_hanging_width(state_count, 0);
 
         int regular_width = getCurrentLineWidth();
         int first_indent = m_indent_current;
@@ -5490,15 +5500,18 @@ public:
                 }
                 // Account for the exact left/right punctuation (or hyphen)
                 // overhang that addLine() will apply while rendering.
-                natural_width -= getOptimalHangingWidth(
+                int hanging_width = getOptimalHangingWidth(
                         line_start, capacity_end - 1, cur.hyphenated);
+                natural_width -= hanging_width;
 
                 bool first_line = previous < 0;
                 int target_width = regular_width -
                         (first_line ? first_indent : following_indent);
                 if ( target_width <= 0 )
                     continue;
-                int diff = target_width - natural_width;
+                int diff = knuthOpticalLineAdjustment(
+                        target_width, natural_width + hanging_width,
+                        hanging_width);
                 bool final_line = line_end == m_length-1;
                 bool last_line_justified = final_line &&
                         last_align == LTEXT_ALIGN_WIDTH &&
@@ -5587,6 +5600,7 @@ public:
                 // whether it originated in word-space rounding, configured
                 // tracking, or emergency stretch.
                 int tracking_basis_points = 0;
+                int visible_space_target_x64 = -1;
                 if ( !ragged_final && natural_width > 0 ) {
                     int space_adjustment = 0;
                     if ( space_count > 0 ) {
@@ -5619,6 +5633,10 @@ public:
                         space_adjustment += raise_by * space_count;
                         tracking_adjustment = diff - space_adjustment;
                     }
+                    if ( space_count > 0 )
+                        visible_space_target_x64 =
+                                (natural_space_total + space_adjustment) *
+                                64 / space_count;
                     if ( tracking_adjustment > tracking_stretch ||
                             -tracking_adjustment > tracking_shrink )
                         continue;
@@ -5634,8 +5652,19 @@ public:
                 }
                 long long line_cost = (long long)(m_pbuffer->justify_line_penalty +
                         badness) * (m_pbuffer->justify_line_penalty + badness);
-                if ( cur.penalty > 0 )
-                    line_cost += (long long)cur.penalty * cur.penalty;
+                // Hyphenation is a neutral break opportunity in page mode.
+                // It is neither delayed to a later pass nor assigned explicit,
+                // consecutive, or final-line demerits.
+                if ( visible_space_target_x64 > 0 &&
+                        m_pbuffer->justify_page_space_target_x64 > 0 ) {
+                    // All justified lines on the page share this objective.
+                    // Weight by the number of visible gaps: a one-pixel drift
+                    // repeated six times matters more than one isolated gap.
+                    line_cost += knuthPageSpacingDeviationCost(
+                            visible_space_target_x64,
+                            m_pbuffer->justify_page_space_target_x64,
+                            space_count);
+                }
                 if ( first_line && diff > 0 ) {
                     // A loose indented first line is especially conspicuous:
                     // it has fewer spaces, and it establishes the paragraph's
@@ -5682,10 +5711,6 @@ public:
                     if ( previous >= 0 ) {
                         if ( std::abs(fitness - prior_fitness) > 1 )
                             total += m_pbuffer->justify_adjacent_demerits;
-                        if ( cur.flagged && candidates[previous].flagged )
-                            total += m_pbuffer->justify_double_hyphen_demerits;
-                        if ( final_line && candidates[previous].flagged )
-                            total += m_pbuffer->justify_final_hyphen_demerits;
                     }
                     size_t state = current*4 + fitness;
                     if ( total < cost[state] ) {
@@ -5694,6 +5719,10 @@ public:
                         previous_fitness[state] = previous < 0 ? -1 : prior_fitness;
                         last_tracking_basis_points[state] =
                                 tracking_basis_points;
+                        selected_space_count[state] = space_count;
+                        selected_space_target_x64[state] =
+                                visible_space_target_x64;
+                        selected_hanging_width[state] = hanging_width;
                     }
                 }
             }
@@ -5716,9 +5745,12 @@ public:
         int current = final_candidate;
         int fitness = final_fitness;
         while ( current >= 0 ) {
-            result.push_back(OptimalLineBreak(candidates[current].pos,
-                                              candidates[current].hyphenated));
             size_t state = current*4 + fitness;
+            result.push_back(OptimalLineBreak(candidates[current].pos,
+                                              candidates[current].hyphenated,
+                                              selected_space_count[state],
+                                              selected_space_target_x64[state],
+                                              selected_hanging_width[state]));
             int next_current = previous_candidate[state];
             int next_fitness = previous_fitness[state];
             current = next_current;
@@ -5733,12 +5765,10 @@ public:
         if ( !canOptimizeParagraph(para, preFormattedOnly) )
             return false;
         std::vector<OptimalLineBreak> breaks;
-        // Match justif/TeX's escalation: first try without discretionary
-        // hyphens, then enable them, then add emergency stretch.
-        if ( !buildOptimalBreaks(para, breaks, false,
+        // Hyphens are free: include discretionary and explicit opportunities
+        // in the first pass, and reserve only emergency stretch for fallback.
+        if ( !buildOptimalBreaks(para, breaks, true,
                     m_pbuffer->justify_pretolerance, false) &&
-                !buildOptimalBreaks(para, breaks, true,
-                    m_pbuffer->justify_tolerance, false) &&
                 !buildOptimalBreaks(para, breaks, true,
                     m_pbuffer->justify_tolerance, true) )
             return false;
@@ -5757,6 +5787,11 @@ public:
                 m_flags[wrap_pos] |= LCHAR_ALLOW_HYPH_WRAP_AFTER;
             addLine(pos, wrap_pos + 1, x, para, pos == 0,
                     wrap_pos >= m_length-1, preFormattedOnly, isLastPara, false);
+            formatted_line_t * line =
+                    m_pbuffer->frmlines[m_pbuffer->frmlinecount-1];
+            line->justify_space_count = breaks[i].space_count;
+            line->justify_space_target_x64 = breaks[i].space_target_x64;
+            line->justify_hanging_width = breaks[i].hanging_width;
             m_flags[wrap_pos] = saved_flags;
             pos = wrap_pos + 1;
         }

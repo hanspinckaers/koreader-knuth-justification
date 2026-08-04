@@ -227,7 +227,7 @@ typedef struct
 
 /** \brief Text formatter formatted line
 */
-typedef struct
+typedef struct formatted_line_t
 {
    formatted_word_t * words;       /**< array of words */
    lInt32             word_count;  /**< number of words */
@@ -239,6 +239,9 @@ typedef struct
    lUInt16            width_overflow; /**< right edge glyph overflow over width (when hanging punctuation) */
    lUInt8             flags;       /**< flags */
    lUInt8             align;       /**< alignment */
+   lInt16             justify_space_count; /**< adjustable gaps represented by the page metric */
+   lInt32             justify_space_target_x64; /**< selected visible gap width, in 1/64 px; -1 when unavailable */
+   lInt16             justify_hanging_width; /**< total left/right overhang included in the metric */
 } formatted_line_t;
 
 /** \brief Text formatter embedded float
@@ -335,6 +338,7 @@ typedef struct
    lInt32                justify_emergency_stretch_percent;
    lInt32                justify_last_line_min_percent;
    lInt32                justify_tracking_delta_max_bp;
+   lInt32                justify_page_space_target_x64; /**< shared page gap target in 1/64 px, or -1 */
    // CJK char width
    lInt32                cjk_width_scale_percent; /**< scale the normal width of all CJK chars in all fonts by this percent */
 
@@ -448,10 +452,15 @@ public:
     /// set max allowed added letter spacing (0..20% of font size)
     void setMaxAddedLetterSpacingPercent(int maxAddedLetterSpacingPercent);
 
-    /// set line breaking mode (0: greedy, 1: paragraph-wide optimization)
+    /// set line breaking mode (0: greedy, 1: page-aware optimization)
     void setLineBreakingMode(int lineBreakingMode);
 
-    /// set paragraph-wide justification limits and penalties
+    /// set the page-wide visible word-space target (-1 when not available)
+    void setJustificationPageSpaceTarget(int targetX64) {
+        m_pbuffer->justify_page_space_target_x64 = targetX64;
+    }
+
+    /// set page-aware justification limits and penalties
     void setJustificationConfig(
             int spaceShrinkPercent, int spaceStretchPercent,
             int trackingShrinkPercent, int trackingStretchPercent,

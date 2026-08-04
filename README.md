@@ -1,7 +1,11 @@
 # KOReader Knuth justification
 
-Experimental page-aware Knuth/Plass justification for reflowable documents in
-KOReader. The project is deliberately separate from a KOReader fork: this
+Experimental page-level Knuth/Plass justification for reflowable documents in
+KOReader. Every page receives a shared optimized word-space baseline; paragraph
+break candidates are scored against that page texture. Hyphenation is free and
+hanging punctuation participates in the same optical-width metric.
+
+The project is deliberately separate from a KOReader fork: this
 repository is the source of truth for the Lua plugin, startup patches, native
 CREngine overlay, tests, and release packaging.
 
@@ -37,11 +41,35 @@ git clone --recursive --branch v2026.07.1 https://github.com/koreader/koreader.g
 
 The sync script refuses a different KOReader or CREngine commit.
 
+With an already configured `build-kindle4` tree, build and package the complete
+overlay from this repository with:
+
+```sh
+./scripts/build-kindle-overlay.sh /path/to/koreader-v2026.07.1
+```
+
+The renderer first discovers real page membership, then performs at most two
+page-target refinement passes. It stops early when page boundaries and weighted
+word-space targets converge exactly.
+
+Run the host-side plugin and native objective tests with LuaJIT or Lua 5.1:
+
+```sh
+./scripts/test.sh
+```
+
+Validate a packaged overlay, optionally against the stock official module's
+undefined-symbol ABI, with:
+
+```sh
+./scripts/validate-overlay.sh overlay.zip /path/to/official/libkoreader-cre.so
+```
+
 ## Install
 
 Install official KOReader `v2026.07.1`, then merge a release overlay's
 `koreader/` directory into the existing installation and fully restart KOReader.
-The controls appear under **Top menu → Knuth justification**.
+The controls appear under **Top menu → Page-level Knuth justification**.
 
 ## License
 

@@ -29,9 +29,9 @@ package.preload.version = function()
     return { getCurrentRevision = function() return "v2026.07.1" end }
 end
 dofile("patches/10-knuth-cre.lua")
-assert(G_KNUTH_CRE_API == 1)
+assert(G_KNUTH_CRE_API == 2)
 assert(G_KNUTH_CRE_RELEASE == "v2026.07.1")
-assert(loaded_path == "./libs/libkoreader-cre-knuth-v2026.07.1.so")
+assert(loaded_path == "./libs/libkoreader-cre-knuth-page-v2026.07.1.so")
 assert(loaded_symbol == "luaopen_cre")
 assert(type(package.preload["libs/libkoreader-cre"]) == "function")
 
@@ -48,7 +48,7 @@ assert(G_KNUTH_CRE_API == nil)
 assert(package.preload["libs/libkoreader-cre"] == nil)
 
 -- Profiles extension preserves the official method and appends plugin settings.
-G_KNUTH_CRE_API = 1
+G_KNUTH_CRE_API = 2
 local profile_patch
 reset("userpatch")
 package.preload.userpatch = function()
@@ -144,6 +144,8 @@ local config = {
 }
 saved.copt_line_breaking_mode = 1
 saved.copt_justification_word_spacing = { 29, 47 }
+saved.copt_justification_hyphen_penalty = { 50, 50 }
+saved.copt_justification_hyphen_demerits = { 10000, 5000 }
 local document = {
     configurable = {},
     _document = { setIntProperty = function(_, name, value) properties[name] = value end },
@@ -155,12 +157,16 @@ local ui = {
     menu = { registerToMainMenu = function() end },
     handleEvent = function() end,
 }
-local plugin_class = dofile("plugins/knuthjustification.koplugin/main.lua")
+local plugin_class = dofile("plugin/main.lua")
 local plugin = plugin_class:new{ ui = ui }
 plugin:onReadSettings(config)
 assert(properties["crengine.style.line.breaking.mode"] == 1)
 assert(properties["crengine.style.justify.space.shrink.percent"] == 29)
 assert(properties["crengine.style.justify.space.stretch.percent"] == 47)
+assert(properties["crengine.style.justify.hyphen.penalty"] == 0)
+assert(properties["crengine.style.justify.explicit.hyphen.penalty"] == 0)
+assert(properties["crengine.style.justify.double.hyphen.demerits"] == 0)
+assert(properties["crengine.style.justify.final.hyphen.demerits"] == 0)
 assert(properties["crengine.page.center.nearly.full"] == 1)
 assert(actions.line_breaking_mode.event == "SetLineBreakingMode")
 assert(actions.page_center_nearly_full.event == "SetPageCenterNearlyFull")

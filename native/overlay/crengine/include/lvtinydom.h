@@ -121,12 +121,12 @@ extern const int gDOMVersionCurrent;
 #define DEF_JUSTIFY_TRACKING_STRETCH_PERCENT 0
 #define DEF_JUSTIFY_PRETOLERANCE 100
 #define DEF_JUSTIFY_TOLERANCE 200
-#define DEF_JUSTIFY_HYPHEN_PENALTY 50
-#define DEF_JUSTIFY_EX_HYPHEN_PENALTY 50
+#define DEF_JUSTIFY_HYPHEN_PENALTY 0
+#define DEF_JUSTIFY_EX_HYPHEN_PENALTY 0
 #define DEF_JUSTIFY_LINE_PENALTY 10
 #define DEF_JUSTIFY_ADJ_DEMERITS 10000
-#define DEF_JUSTIFY_DOUBLE_HYPHEN_DEMERITS 10000
-#define DEF_JUSTIFY_FINAL_HYPHEN_DEMERITS 5000
+#define DEF_JUSTIFY_DOUBLE_HYPHEN_DEMERITS 0
+#define DEF_JUSTIFY_FINAL_HYPHEN_DEMERITS 0
 #define DEF_JUSTIFY_EMERGENCY_STRETCH_PERCENT 6
 #define DEF_JUSTIFY_LAST_LINE_MIN_PERCENT 33
 #define DEF_JUSTIFY_TRACKING_DELTA_MAX_BP 50
@@ -2923,6 +2923,22 @@ public:
     int getPageHeight() { return _page_height; }
     /// returns page width setting
     int getPageWidth() { return _page_width; }
+    /// returns the optimized visible word-space baseline for the page at y
+    int getPageWordSpacingTargetX64(int y) {
+        if ( !_doc_pages )
+            return -1;
+        int nearest = -1;
+        for ( int i=0; i<_doc_pages->length(); i++ ) {
+            LVRendPageInfo * page = _doc_pages->get(i);
+            if ( !(page->flags & RN_PAGE_TYPE_NORMAL) )
+                continue;
+            if ( page->start <= y )
+                nearest = page->word_spacing_target_x64;
+            if ( y >= page->start && y < page->start + page->height )
+                return page->word_spacing_target_x64;
+        }
+        return nearest;
+    }
 
     /// Get/set the device screen size, which  is only used to support CSS media queries
     /// like "@media (min-device-width:300px) or (max-device-aspect-ratio:4/3)"

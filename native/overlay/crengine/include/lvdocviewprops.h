@@ -83,9 +83,9 @@
 #define PROP_FORMAT_UNUSED_SPACE_THRESHOLD_PERCENT   "crengine.style.unused.space.threshold.percent"
 // Max allowed added letter spacing (% of font size)
 #define PROP_FORMAT_MAX_ADDED_LETTER_SPACING_PERCENT "crengine.style.max.added.letter.spacing.percent"
-// Line breaking strategy: 0=greedy, 1=paragraph-wide optimization
+// Line breaking strategy: 0=greedy, 1=page-aware optimization
 #define PROP_FORMAT_LINE_BREAKING_MODE               "crengine.style.line.breaking.mode"
-// Paragraph-wide justification controls, modelled after Knuth-Plass/justif.
+// Page-aware justification controls, modelled after Knuth-Plass/justif.
 #define PROP_FORMAT_JUSTIFY_SPACE_SHRINK_PERCENT     "crengine.style.justify.space.shrink.percent"
 #define PROP_FORMAT_JUSTIFY_SPACE_STRETCH_PERCENT    "crengine.style.justify.space.stretch.percent"
 #define PROP_FORMAT_JUSTIFY_TRACKING_SHRINK_PERCENT  "crengine.style.justify.tracking.shrink.percent"

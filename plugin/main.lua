@@ -1,4 +1,4 @@
-if rawget(_G, "G_KNUTH_CRE_API") ~= 1 then
+if rawget(_G, "G_KNUTH_CRE_API") ~= 2 then
     return { disabled = true }
 end
 
@@ -21,10 +21,10 @@ local options = {
     {
         name = "line_breaking_mode",
         event = "SetLineBreakingMode",
-        title = _("Optimized justification"),
+        title = _("Page-level justification"),
         default = 0,
         values = { 0, 1 },
-        labels = { C_("Line breaking", "greedy"), C_("Line breaking", "optimized") },
+        labels = { C_("Line breaking", "greedy"), C_("Line breaking", "page-level") },
         properties = { "crengine.style.line.breaking.mode" },
     },
     {
@@ -108,28 +108,27 @@ local options = {
             "crengine.style.justify.pretolerance",
             "crengine.style.justify.tolerance",
         },
-        left_text = _("Before hyphens"), left_min = 0, left_max = 10000, left_step = 10, left_hold_step = 100,
-        right_text = _("With hyphens"), right_min = 0, right_max = 10000, right_step = 10, right_hold_step = 100,
-        info = _([[Pretolerance is used by the first pass without automatic hyphenation. Tolerance is used by later passes with hyphenation.]]),
+        left_text = _("Normal"), left_min = 0, left_max = 10000, left_step = 10, left_hold_step = 100,
+        right_text = _("Emergency"), right_min = 0, right_max = 10000, right_step = 10, right_hold_step = 100,
+        info = _([[Both passes allow hyphenation at zero cost. The second tolerance is used only with emergency stretch.]]),
     },
     {
         name = "justification_hyphen_penalty",
         event = "SetJustificationHyphenPenalty",
-        title = _("Hyphen penalties"),
-        default = { 50, 50 },
-        values = { { 25, 25 }, { 50, 50 }, { 100, 100 } },
+        title = _("Hyphenation cost"),
+        default = { 0, 0 },
+        values = { { 0, 0 } },
         labels = {
-            C_("Hyphen penalty", "frequent"),
-            C_("Hyphen penalty", "balanced"),
-            C_("Hyphen penalty", "rare"),
+            C_("Hyphen penalty", "zero (free)"),
         },
         properties = {
             "crengine.style.justify.hyphen.penalty",
             "crengine.style.justify.explicit.hyphen.penalty",
         },
-        left_text = _("Automatic"), left_min = 0, left_max = 100000, left_step = 10, left_hold_step = 100,
-        right_text = _("Explicit"), right_min = 0, right_max = 100000, right_step = 10, right_hold_step = 100,
-        info = _([[Cost of a break at an automatically inserted hyphen and at a hyphen already present in the text.]]),
+        left_text = _("Automatic"), left_min = 0, left_max = 0, left_step = 1, left_hold_step = 1,
+        right_text = _("Explicit"), right_min = 0, right_max = 0, right_step = 1, right_hold_step = 1,
+        info = _([[Hyphenated and non-hyphenated breaks have equal cost.]]),
+        fixed_zero = true,
     },
     {
         name = "justification_line_penalty",
@@ -153,21 +152,20 @@ local options = {
     {
         name = "justification_hyphen_demerits",
         event = "SetJustificationHyphenDemerits",
-        title = _("Repeated-hyphen penalties"),
-        default = { 10000, 5000 },
-        values = { { 1000, 500 }, { 10000, 5000 }, { 20000, 10000 } },
+        title = _("Repeated-hyphen cost"),
+        default = { 0, 0 },
+        values = { { 0, 0 } },
         labels = {
-            C_("Repeated hyphens", "allow"),
-            C_("Repeated hyphens", "balanced"),
-            C_("Repeated hyphens", "avoid"),
+            C_("Repeated hyphens", "zero (free)"),
         },
         properties = {
             "crengine.style.justify.double.hyphen.demerits",
             "crengine.style.justify.final.hyphen.demerits",
         },
-        left_text = _("Consecutive"), left_min = 0, left_max = 100000, left_step = 100, left_hold_step = 1000,
-        right_text = _("Before ending"), right_min = 0, right_max = 100000, right_step = 100, right_hold_step = 1000,
-        info = _([[Extra demerits for consecutive hyphenated lines and for a hyphen immediately before the final line.]]),
+        left_text = _("Consecutive"), left_min = 0, left_max = 0, left_step = 1, left_hold_step = 1,
+        right_text = _("Before ending"), right_min = 0, right_max = 0, right_step = 1, right_hold_step = 1,
+        info = _([[Consecutive and final-line-adjacent hyphens carry no extra cost.]]),
+        fixed_zero = true,
     },
     {
         name = "justification_line_limits",
@@ -246,6 +244,9 @@ function KnuthJustification:init()
 end
 
 function KnuthJustification:readValue(config, option)
+    if option.fixed_zero then
+        return copy(option.default)
+    end
     local value = config:readSetting("copt_" .. option.name)
     if value == nil then
         value = G_reader_settings:readSetting("copt_" .. option.name)
@@ -286,6 +287,9 @@ end
 function KnuthJustification:setValue(name, value, quiet)
     local option = options_by_name[name]
     if not option then return end
+    if option.fixed_zero then
+        value = option.default
+    end
     value = copy(value)
     self.values[name] = value
     self.ui.document.configurable[name] = copy(value)
@@ -393,7 +397,7 @@ end
 function KnuthJustification:getMenuTable()
     local menu = {
         {
-            text = _("Use optimized paragraph breaking"),
+            text = _("Use page-level Knuth optimization"),
             checked_func = function()
                 return self.values.line_breaking_mode == 1
             end,
@@ -433,7 +437,7 @@ function KnuthJustification:getMenuTable()
         end
     end
     table.insert(menu, {
-        text = _("Hanging punctuation is controlled under Typography rules and is included in optimized line-width calculations."),
+        text = _("Hanging punctuation is controlled under Typography rules and is included in each page's word-spacing baseline."),
         enabled = false,
         separator = true,
     })
@@ -444,7 +448,7 @@ function KnuthJustification:addToMainMenu(menu_items)
     menu_items.knuth_justification = {
         text_func = function()
             local state = self.values.line_breaking_mode == 1 and _("on") or _("off")
-            return T(_("Knuth justification (%1)"), state)
+            return T(_("Page-level Knuth justification (%1)"), state)
         end,
         sorting_hint = "typeset",
         sub_item_table_func = function()

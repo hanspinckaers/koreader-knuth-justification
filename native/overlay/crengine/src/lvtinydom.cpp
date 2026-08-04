@@ -95,7 +95,7 @@ extern const int gDOMVersionCurrent = DOM_VERSION_CURRENT;
 // increment to force complete reload/reparsing of old file
 #define CACHE_FILE_FORMAT_VERSION "3.05.80k"
 /// increment following value to force re-formatting of old book after load
-#define FORMATTING_VERSION_ID 0x0034
+#define FORMATTING_VERSION_ID 0x0035
 
 #ifndef DOC_DATA_COMPRESSION_LEVEL
 /// data compression level (0=no compression, 1=fast compressions, 3=normal compression)
@@ -5552,10 +5552,47 @@ bool ldomDocument::partialRender( ldomNode * node ) {
     // a cache save, and will soon reload the document from that new cache.
 }
 
+static bool hasKnuthPageTargets(LVRendPageList * pages) {
+    for ( int i=0; i<pages->length(); i++ ) {
+        LVRendPageInfo * page = pages->get(i);
+        if ( (page->flags & RN_PAGE_TYPE_NORMAL) &&
+                page->word_spacing_target_x64 > 0 )
+            return true;
+    }
+    return false;
+}
+
+static bool sameKnuthPageTargets(LVRendPageList * first,
+                                 LVRendPageList * second) {
+    if ( first->length() != second->length() )
+        return false;
+    for ( int i=0; i<first->length(); i++ ) {
+        LVRendPageInfo * a = first->get(i);
+        LVRendPageInfo * b = second->get(i);
+        if ( a->start != b->start || a->height != b->height ||
+                a->flow != b->flow || a->flags != b->flags ||
+                a->word_spacing_target_x64 != b->word_spacing_target_x64 )
+            return false;
+    }
+    return true;
+}
+
+static void moveRendPages(LVRendPageList * destination,
+                          LVRendPageList * source) {
+    destination->clear();
+    destination->setHasNonLinearFlows(source->hasNonLinearFlows());
+    while ( !source->empty() )
+        destination->add(source->remove(0));
+}
+
 bool ldomDocument::render( LVRendPageList * pages, LVDocViewCallback * callback, int width, int dy,
                            bool showCover, int y0, font_ref_t def_font, int def_interline_space,
                            CRPropRef props, int usable_left_overflow, int usable_right_overflow )
 {
+    // Keep the live page list reachable by final-block formatting. Page-level
+    // Knuth targets are serialized in each LVRendPageInfo and are therefore
+    // available after either a fresh split or a cache load.
+    _doc_pages = pages;
     CRLog::info("Render is called for width %d, pageHeight=%d, fontFace=%s, docFlags=%d", width, dy, def_font->getTypeFace().c_str(), getDocFlags() );
     CRLog::trace("initializing default style...");
     //persist();
@@ -5702,13 +5739,47 @@ bool ldomDocument::render( LVRendPageList * pages, LVDocViewCallback * callback,
         pages->clear();
         if ( showCover )
             pages->add( new LVRendPageInfo( _page_height ) );
-        LVRendPageContext context( pages, _page_height, _def_font->getSize() );
         int numFinalBlocks = calcFinalBlocks();
         CRLog::info("Final block count: %d", numFinalBlocks);
-        context.setCallback(callback, numFinalBlocks);
-        //updateStyles();
-        CRLog::trace("rendering...");
-        renderBlockElement( context, getRootNode(), 0, y0, width, usable_left_overflow, usable_right_overflow );
+        {
+            LVRendPageContext context( pages, _page_height, _def_font->getSize() );
+            context.setCallback(callback, numFinalBlocks);
+            //updateStyles();
+            CRLog::trace("rendering...");
+            renderBlockElement( context, getRootNode(), 0, y0, width,
+                    usable_left_overflow, usable_right_overflow );
+            context.Finalize();
+        }
+
+        // Page-aware Knuth optimization uses bounded coordinate descent. The
+        // initial pass discovers the actual page membership and weighted gap
+        // baseline. Each refinement pass reformats all paragraphs against the
+        // previous pass' page targets, then paginates again. Two refinements
+        // are enough to absorb a boundary shift without making book opening
+        // unbounded; exact convergence stops the loop early.
+        if ( _lineBreakingMode == 1 && hasKnuthPageTargets(pages) ) {
+            for ( int refinement=0; refinement<2; refinement++ ) {
+                LVRendPageList target_pages(*pages);
+                LVRendPageList refined_pages;
+                if ( showCover )
+                    refined_pages.add(new LVRendPageInfo(_page_height));
+                _doc_pages = &target_pages;
+                _renderedBlockCache.clear();
+                {
+                    LVRendPageContext context(&refined_pages, _page_height,
+                                              _def_font->getSize());
+                    renderBlockElement(context, getRootNode(), 0, y0, width,
+                            usable_left_overflow, usable_right_overflow);
+                    context.Finalize();
+                }
+                bool converged = sameKnuthPageTargets(&target_pages,
+                                                      &refined_pages);
+                moveRendPages(pages, &refined_pages);
+                _doc_pages = pages;
+                if ( converged )
+                    break;
+            }
+        }
         _rendered = true;
     #if 0 //def _DEBUG
         LVStreamRef ostream = LVOpenFileStream( "test_save_after_init_rend_method.xml", LVOM_WRITE );
@@ -5716,7 +5787,6 @@ bool ldomDocument::render( LVRendPageList * pages, LVDocViewCallback * callback,
     #endif
         gc();
         CRLog::trace("finalizing... fonts.length=%d", _fonts.length());
-        context.Finalize();
         updateRenderContext();
         _pagesData.reset();
         pages->serialize( _pagesData );
@@ -18470,7 +18540,7 @@ lUInt32 tinyNodeCollection::calcStyleHash(bool already_rendered, lUInt32 force_n
     // Optimized justification changes line breaks, paragraph heights and
     // pagination. Keep it in the persistent style hash so a second rendering
     // pass cannot reuse incomplete chapter fragments from another mode/config.
-    res = res * 31 + 6; // optimized-justification layout hash version
+    res = res * 31 + 7; // page-aware justification layout hash version
     res = res * 31 + _lineBreakingMode;
     res = res * 31 + _justifySpaceShrinkPercent;
     res = res * 31 + _justifySpaceStretchPercent;
@@ -22239,6 +22309,10 @@ int ldomNode::renderFinalBlock(  LFormattedTextRef & frmtext, RenderRectAccessor
     // Format/render inner content: this makes lines and words, which are
     // cached into the LFormattedText and ready to be used for drawing
     // and text selection.
+    lvRect absolute_rect;
+    getAbsRect(absolute_rect);
+    f->setJustificationPageSpaceTarget(
+            getDocument()->getPageWordSpacingTargetX64(absolute_rect.top));
     int h = f->Format((lUInt16)width, (lUInt16)page_h, direction, usable_left_overflow, usable_right_overflow,
                             getDocument()->getHangingPunctiationEnabled(), float_footprint);
     frmtext = f;

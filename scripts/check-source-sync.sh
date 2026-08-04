@@ -14,11 +14,15 @@ status=0
 for path in \
     crengine/include/lvdocview.h \
     crengine/include/lvdocviewprops.h \
+    crengine/include/knuthpagespacing.h \
     crengine/include/lvfntman.h \
+    crengine/include/lvpagesplitter.h \
     crengine/include/lvtextfm.h \
     crengine/include/lvtinydom.h \
     crengine/src/lvdocview.cpp \
     crengine/src/lvfntman.cpp \
+    crengine/src/lvpagesplitter.cpp \
+    crengine/src/lvrend.cpp \
     crengine/src/lvtextfm.cpp \
     crengine/src/lvtinydom.cpp
 do

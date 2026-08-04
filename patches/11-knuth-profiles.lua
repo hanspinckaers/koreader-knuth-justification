@@ -1,4 +1,4 @@
-if rawget(_G, "G_KNUTH_CRE_API") ~= 1 then
+if rawget(_G, "G_KNUTH_CRE_API") ~= 2 then
     return
 end
 
