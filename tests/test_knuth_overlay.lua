@@ -85,7 +85,9 @@ package.preload.dispatcher = function()
     return { registerAction = function(_, name, action) actions[name] = action end }
 end
 package.preload["ui/event"] = function()
-    return { new = function(_, name) return { name = name } end }
+    return { new = function(_, name, ...)
+        return { name = name, args = { ... } }
+    end }
 end
 package.preload["ui/widget/notification"] = function()
     return { notify = function() end }
@@ -137,7 +139,9 @@ G_reader_settings = {
     saveSetting = function() end,
 }
 local properties = {}
+local handled_events = {}
 local saved = {}
+local hyphenation_enabled
 local config = {
     readSetting = function(_, name) return saved[name] end,
     saveSetting = function(_, name, value) saved[name] = value end,
@@ -149,15 +153,18 @@ saved.copt_justification_hyphen_demerits = { 10000, 5000 }
 local document = {
     configurable = {},
     _document = { setIntProperty = function(_, name, value) properties[name] = value end },
+    setTextHyphenation = function(_, enabled) hyphenation_enabled = enabled end,
 }
 local ui = {
     rolling = {},
+    typography = { hyphenation = false },
     document = document,
     doc_settings = config,
     menu = { registerToMainMenu = function() end },
-    handleEvent = function() end,
+    handleEvent = function(_, event) table.insert(handled_events, event) end,
 }
-local plugin_class = dofile("plugin/main.lua")
+local plugin_path = arg[1] or "plugin/main.lua"
+local plugin_class = dofile(plugin_path)
 local plugin = plugin_class:new{ ui = ui }
 plugin:onReadSettings(config)
 assert(properties["crengine.style.line.breaking.mode"] == 1)
@@ -170,5 +177,28 @@ assert(properties["crengine.style.justify.final.hyphen.demerits"] == 0)
 assert(properties["crengine.page.center.nearly.full"] == 1)
 assert(actions.line_breaking_mode.event == "SetLineBreakingMode")
 assert(actions.page_center_nearly_full.event == "SetPageCenterNearlyFull")
+
+if plugin_path == "combined/plugin/main.lua" then
+    local menu = plugin:getMenuTable()
+    menu[2].callback()
+    assert(properties["crengine.style.line.breaking.mode"] == 1)
+    assert(properties["crengine.style.justify.space.shrink.percent"] == 25)
+    assert(properties["crengine.style.justify.space.stretch.percent"] == 35)
+    assert(hyphenation_enabled == true)
+    assert(ui.typography.hyphenation == true)
+    assert(saved.hyphenation == true)
+    local expected = {
+        SetFont = true,
+        SetFontSize = true,
+        SetFontKerning = true,
+        SetFontFractionalPositioning = true,
+        ToggleStyleTweak = true,
+        ToggleFloatingPunctuation = true,
+    }
+    for _, event in ipairs(handled_events) do
+        expected[event.name] = nil
+    end
+    assert(next(expected) == nil)
+end
 
 print("Knuth official overlay tests passed")

@@ -15,7 +15,13 @@ cd "$repo_dir"
 sh -n scripts/*.sh
 "$lua_bin" tests/check_lua_syntax.lua \
     patches/10-knuth-cre.lua patches/11-knuth-profiles.lua \
-    plugin/_meta.lua plugin/main.lua
+    plugin/_meta.lua plugin/main.lua \
+    combined/patches/12-kerning-profiles.lua \
+    combined/plugin/_meta.lua combined/plugin/main.lua \
+    combined/frontend/document/credocument.lua \
+    combined/frontend/apps/reader/modules/readerfont.lua \
+    combined/frontend/ui/data/creoptions.lua
 "$lua_bin" tests/test_knuth_overlay.lua
+"$lua_bin" tests/test_knuth_overlay.lua combined/plugin/main.lua
 ./scripts/test-native-helpers.sh
 git diff --check
