@@ -2896,15 +2896,28 @@ public:
             return applyDistributedTracking(frmline, extra_width);
         }
 
-        // Pick one absolute space width. The closest integer target keeps the
-        // residual microtracking minimal. Configured word-space bounds are
-        // respected whenever all spaces have a common feasible interval.
+        // Pick one absolute space width. With glyph spacing preserved, round
+        // downward and leave the indivisible remainder at the line edge.
+        // Configured word-space bounds are respected whenever all spaces have
+        // a common feasible interval.
         int desired_space_total = natural_space_total + extra_width;
-        int target_space = (desired_space_total + spaces / 2) / spaces;
+        bool preserve_glyph_spacing =
+                m_pbuffer->justify_tracking_shrink_percent == 0 &&
+                m_pbuffer->justify_tracking_stretch_percent == 0;
+        // When glyph spacing is locked, round down. The line may end a few
+        // pixels short, but it never alters HarfBuzz kerning or crosses the
+        // right margin merely to absorb an indivisible space remainder.
+        int target_space = preserve_glyph_spacing
+                ? desired_space_total / spaces
+                : (desired_space_total + spaces / 2) / spaces;
         target_space = std::max(1, target_space);
         if ( min_common_space <= max_common_space )
             target_space = std::max(min_common_space,
                     std::min(max_common_space, target_space));
+
+        if ( preserve_glyph_spacing ) {
+            return applyFixedWordSpacing(frmline, target_space);
+        }
 
         int tracking_points = countDistributedTrackingPoints(frmline);
         int predicted_applied = target_space * spaces - natural_space_total;
@@ -5594,19 +5607,23 @@ public:
                 if ( !ragged_final && badness > tolerance )
                     continue;
                 // Model the renderer's exact ordering: first choose one
-                // absolute word-space width, then put the integer remainder
-                // into line-wide microtracking. Compare that normalized
-                // remainder across adjacent justified lines, regardless of
-                // whether it originated in word-space rounding, configured
-                // tracking, or emergency stretch.
+                // absolute word-space width. When tracking is disabled, keep
+                // any indivisible integer remainder as optical edge slack;
+                // otherwise model the configured line-wide microtracking.
                 int tracking_basis_points = 0;
                 int visible_space_target_x64 = -1;
+                int optical_slack = 0;
                 if ( !ragged_final && natural_width > 0 ) {
                     int space_adjustment = 0;
                     if ( space_count > 0 ) {
                         int desired_space_total = natural_space_total + diff;
-                        int target_space = (desired_space_total +
-                                space_count / 2) / space_count;
+                        bool preserve_glyph_spacing =
+                                m_pbuffer->justify_tracking_shrink_percent == 0 &&
+                                m_pbuffer->justify_tracking_stretch_percent == 0;
+                        int target_space = preserve_glyph_spacing
+                                ? desired_space_total / space_count
+                                : (desired_space_total + space_count / 2) /
+                                  space_count;
                         target_space = std::max(1, target_space);
                         int minimum_common_space =
                                 (natural_space_total +
@@ -5621,6 +5638,18 @@ public:
                                 natural_space_total;
                     }
                     int tracking_adjustment = diff - space_adjustment;
+                    bool preserve_glyph_spacing =
+                            m_pbuffer->justify_tracking_shrink_percent == 0 &&
+                            m_pbuffer->justify_tracking_stretch_percent == 0;
+                    if ( preserve_glyph_spacing ) {
+                        // Do not turn a word-space rounding remainder into
+                        // microtracking. Keep it as bounded optical slack at
+                        // the right edge, preserving the shaped word exactly.
+                        if ( tracking_adjustment < 0 )
+                            continue;
+                        optical_slack = tracking_adjustment;
+                        tracking_adjustment = 0;
+                    }
                     if ( tracking_adjustment > 0 &&
                             m_pbuffer->justify_tracking_stretch_percent == 0 ) {
                         if ( space_count == 0 )
@@ -5652,6 +5681,7 @@ public:
                 }
                 long long line_cost = (long long)(m_pbuffer->justify_line_penalty +
                         badness) * (m_pbuffer->justify_line_penalty + badness);
+                line_cost += (long long)optical_slack * optical_slack;
                 // Hyphenation is a neutral break opportunity in page mode.
                 // It is neither delayed to a later pass nor assigned explicit,
                 // consecutive, or final-line demerits.

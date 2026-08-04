@@ -23,6 +23,7 @@ Included
 - complete official KOReader v2026.07.1 Kindle package and KUAL launcher
 - live CREngine PR #685 head e229b669 (fractional positioning strength)
 - page-level Knuth refinement with weighted baseline word spacing
+- exact HarfBuzz inter-letter spacing in page-level mode; no microtracking
 - free automatic, explicit, consecutive and final-adjacent hyphenation
 - hanging-punctuation-aware optical metrics
 - Literata upright and italic variable fonts from Google Fonts, under OFL-1.1

@@ -196,8 +196,13 @@ function ReaderFont:onReadSettings(config)
     self.ui.document:setWordExpansion(self.configurable.word_expansion)
     self.ui.document:setLineBreakingMode(self.configurable.line_breaking_mode)
     self.ui.document:setJustificationWordSpacing(self.configurable.justification_word_spacing)
+    -- Page-level mode preserves the font's HarfBuzz glyph spacing. A tiny
+    -- indivisible line-width remainder is left at the right edge instead of
+    -- being distributed between letters.
+    self.configurable.justification_letter_spacing = { 0, 0 }
     self.ui.document:setJustificationLetterSpacing(self.configurable.justification_letter_spacing)
-    self.ui.document:setJustificationTrackingSmoothness(self.configurable.justification_tracking_smoothness)
+    self.configurable.justification_tracking_smoothness = 0
+    self.ui.document:setJustificationTrackingSmoothness(0)
     self.ui.document:setJustificationTolerance(self.configurable.justification_tolerance)
     self.configurable.justification_hyphen_penalty = { 0, 0 }
     self.ui.document:setJustificationHyphenPenalty(self.configurable.justification_hyphen_penalty)
@@ -321,13 +326,14 @@ function ReaderFont:onSetJustificationWordSpacing(values)
 end
 
 function ReaderFont:onSetJustificationLetterSpacing(values)
-    return setJustificationPair(self, "justification_letter_spacing", values,
+    return setJustificationPair(self, "justification_letter_spacing", { 0, 0 },
         "setJustificationLetterSpacing", _("Justification letter spacing"))
 end
 
 function ReaderFont:onSetJustificationTrackingSmoothness(value)
-    self.configurable.justification_tracking_smoothness = value
-    self.ui.document:setJustificationTrackingSmoothness(value)
+    value = 0
+    self.configurable.justification_tracking_smoothness = 0
+    self.ui.document:setJustificationTrackingSmoothness(0)
     self.ui:handleEvent(Event:new("UpdatePos"))
     Notification:notify(T(_("Maximum adjacent-line letter-spacing change set to: %1."),
         value == 0 and _("off") or string.format("%.2f%%", value / 100)))
