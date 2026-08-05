@@ -590,7 +590,7 @@ Page-level mode performs an initial pagination followed by up to two bounded ref
                     name_text = _("Page-level word-space limits"),
                     info_text = _([[Set the maximum contraction and expansion of every adjustable word space, as percentages of its natural width.
 
-All spaces on one line receive the same adjustment. A routine integer-pixel remainder stays at the right edge instead of changing individual gaps or letter spacing.]]),
+All spaces on one line receive the same width. With the −1% fallback enabled, a tiny negative microtracking correction absorbs the integer rounding overshoot so the justified edge remains aligned.]]),
                     left_text = _("Max −"),
                     left_min = 0,
                     left_max = 100,
@@ -624,7 +624,7 @@ All spaces on one line receive the same adjustment. A routine integer-pixel rema
                     name_text = _("Maximum letter-spacing adjustment"),
                     info_text = _([[Set the maximum negative microtracking available after word spaces have reached their contraction limit.
 
-Microtracking is never used for ordinary pixel rounding or page-baseline matching. With fractional positioning enabled, kerning and tracking share one continuous 1/64-pixel pen across the complete line.]]),
+Microtracking may absorb a tiny integer word-space rounding overshoot, but is never used to expand letters or force the page-baseline objective. With fractional positioning enabled, kerning and tracking share one continuous 1/64-pixel pen across the complete line.]]),
                     left_text = _("Max −"),
                     left_min = 0,
                     left_max = 20,
@@ -647,7 +647,7 @@ Microtracking is never used for ordinary pixel rounding or page-baseline matchin
                 name_text_hold_callback = optionsutil.showValues,
                 name_text_true_values = true,
                 show_true_value_func = percentPair,
-                help_text = _([[Allows up to 1% contraction only when a line cannot fit after word spaces reach their minimum. It never expands letters and never absorbs routine rounding remainders. Fractional kerning and tracking use the same continuous pen.]]),
+                help_text = _([[Allows up to 1% contraction when a line cannot fit after word spaces reach their minimum, and for the tiny overshoot from rounding equal word spaces upward. It never expands letters. Fractional kerning and tracking use the same continuous pen.]]),
             },
             {   -- ReaderFont
                 name = "justification_tracking_smoothness",

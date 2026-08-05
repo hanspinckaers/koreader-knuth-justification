@@ -26,7 +26,8 @@ Included
 - live CREngine PR #685 head e229b669 (fractional positioning strength)
 - page-level Knuth refinement with weighted baseline word spacing
 - continuous 1/64-pixel kerning and bounded negative microtracking pen
-- microtracking only as an overfull-line fallback, never for routine rounding
+- continuous negative microtracking for overfull lines and equal-gap rounding
+- emergency stretch is rendered as word-space stretch, not right-edge slack
 - free automatic, explicit, consecutive and final-adjacent hyphenation
 - hanging-punctuation-aware optical metrics
 - Literata upright and italic variable fonts from Google Fonts, under OFL-1.1

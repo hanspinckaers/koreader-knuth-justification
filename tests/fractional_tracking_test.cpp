@@ -22,5 +22,25 @@ int main() {
 
     assert(knuthTrackingMagnitudeCost(0) == 0);
     assert(knuthTrackingMagnitudeCost(-50) == 10000);
+
+    // Without tracking, integer gap rounding may leave only a bounded edge
+    // remainder. With contraction available, equal gaps round upward and the
+    // continuous pen absorbs the one-pixel overshoot.
+    assert(knuthCommonSpaceTarget(43, 4, 8, 12, false, 0) == 10);
+    assert(knuthCommonSpaceTarget(43, 4, 8, 12, false, 1) == 11);
+
+    // Emergency stretch is real stretch, not unrendered optical slack: the
+    // target may exceed the normal configured maximum.
+    assert(knuthCommonSpaceTarget(61, 4, 8, 12, true, 0) == 15);
+    assert(knuthCommonSpaceTarget(61, 4, 8, 12, true, 3) == 16);
+    assert(knuthCommonSpaceTarget(49, 4, 8, 12, true, 3) == 13);
+
+    // A normal pass still obeys the configured maximum.
+    assert(knuthCommonSpaceTarget(61, 4, 8, 12, false, 20) == 12);
+
+    // Mixed-font rasterisation can produce disjoint nominal gap intervals;
+    // preserve the nearest common natural target instead of clamping through
+    // an invalid interval.
+    assert(knuthCommonSpaceTarget(44, 4, 12, 10, false, 0) == 11);
     return 0;
 }

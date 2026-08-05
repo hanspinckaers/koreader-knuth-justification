@@ -90,9 +90,10 @@ release. The page-only variant continues to preserve stock official kerning.
 
 The integrated renderer keeps HarfBuzz kerning and optional negative
 microtracking in one continuous 26.6 pen across the complete visual line.
-Microtracking is a penalized fallback used only after word spaces reach their
-contraction limit; ordinary integer word-space remainders stay at the right
-edge and do not alter glyph spacing.
+Microtracking is a penalized fallback used after word spaces reach their
+contraction limit and to absorb the tiny overshoot from rounding equal word
+spaces upward. Positive microtracking remains disabled and emergency stretch
+is rendered as word-space stretch rather than right-edge slack.
 
 ## License
 

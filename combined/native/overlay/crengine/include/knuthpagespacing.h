@@ -61,4 +61,37 @@ inline long long knuthTrackingMagnitudeCost(int tracking_basis_points) {
     return 4 * magnitude * magnitude;
 }
 
+// Choose one integer width for every visible word gap. Normal lines respect
+// the configured upper bound; an emergency line may exceed it, because that
+// is what emergency stretch means. When bounded negative tracking is
+// available, round the gaps upward and use the continuous line pen to absorb
+// the small overshoot. Otherwise round downward and leave at most gaps-1
+// pixels of optical edge slack.
+inline int knuthCommonSpaceTarget(int desired_space_total, int gaps,
+                                  int minimum_space, int maximum_space,
+                                  bool allow_emergency_stretch,
+                                  int tracking_shrink_capacity) {
+    if ( gaps <= 0 )
+        return 0;
+    int target = desired_space_total / gaps;
+    if ( target < 1 )
+        target = 1;
+    bool common_interval = minimum_space <= maximum_space;
+    if ( common_interval ) {
+        if ( target < minimum_space )
+            target = minimum_space;
+        if ( !allow_emergency_stretch && target > maximum_space )
+            target = maximum_space;
+    }
+
+    int upward = target + 1;
+    int upward_overshoot = upward * gaps - desired_space_total;
+    bool upward_allowed = !common_interval || allow_emergency_stretch ||
+                          upward <= maximum_space;
+    if ( upward_allowed && upward_overshoot > 0 &&
+            upward_overshoot <= tracking_shrink_capacity )
+        target = upward;
+    return target;
+}
+
 #endif

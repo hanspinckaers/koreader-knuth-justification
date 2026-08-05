@@ -2896,18 +2896,22 @@ public:
             return applyDistributedTracking(frmline, extra_width);
         }
 
-        // Pick one absolute space width by rounding downward. A harmless
-        // positive raster remainder stays at the line edge; microtracking is
-        // reserved for genuine overfull lines after word spaces have reached
-        // their configured contraction limit.
+        // Pick one absolute space width. Emergency stretch must actually be
+        // rendered, rather than being converted into a ragged right edge.
+        // With bounded contraction available, round upward and absorb only
+        // the small integer overshoot with the continuous tracking pen.
         int desired_space_total = natural_space_total + extra_width;
-        int target_space = desired_space_total / spaces;
-        target_space = std::max(1, target_space);
-        if ( min_common_space <= max_common_space )
-            target_space = std::max(min_common_space,
-                    std::min(max_common_space, target_space));
-
         int tracking_points = countDistributedTrackingPoints(frmline);
+        int tracking_shrink_capacity = tracking_points > 0
+                ? frmline->width *
+                  m_pbuffer->justify_tracking_shrink_percent / 100 : 0;
+        bool emergency_stretch = min_common_space <= max_common_space &&
+                (long long)desired_space_total >
+                (long long)max_common_space * spaces;
+        int target_space = knuthCommonSpaceTarget(
+                desired_space_total, spaces, min_common_space,
+                max_common_space, emergency_stretch,
+                tracking_shrink_capacity);
         int predicted_applied = target_space * spaces - natural_space_total;
         if ( tracking_points == 0 && predicted_applied > extra_width ) {
             // There is no subpixel sink for an indivisible negative
@@ -5571,11 +5575,10 @@ public:
                         ? 1 : optimalLineFitness(diff, capacity);
                 if ( !ragged_final && badness > tolerance )
                     continue;
-                // Model the renderer's exact ordering: first choose one
-                // absolute word-space width by rounding down. Positive raster
-                // remainder stays as optical edge slack. Only a negative
-                // remainder caused by the minimum word-space bound may use
-                // bounded line-wide microtracking.
+                // Model the renderer's exact ordering: choose one absolute
+                // word-space width, including real emergency stretch. When
+                // possible, round upward and absorb only the small overshoot
+                // with bounded continuous negative microtracking.
                 int tracking_basis_points = 0;
                 int visible_space_target_x64 = -1;
                 int optical_slack = 0;
@@ -5583,16 +5586,16 @@ public:
                     int space_adjustment = 0;
                     if ( space_count > 0 ) {
                         int desired_space_total = natural_space_total + diff;
-                        int target_space = desired_space_total / space_count;
-                        target_space = std::max(1, target_space);
                         int minimum_common_space =
                                 (natural_space_total +
                                  minimum_space_adjustment) / space_count;
                         int maximum_common_space =
                                 (natural_space_total +
                                  maximum_space_adjustment) / space_count;
-                        target_space = std::max(minimum_common_space,
-                                std::min(maximum_common_space, target_space));
+                        int target_space = knuthCommonSpaceTarget(
+                                desired_space_total, space_count,
+                                minimum_common_space, maximum_common_space,
+                                allow_emergency_stretch, tracking_shrink);
                         space_adjustment =
                                 target_space * space_count -
                                 natural_space_total;
